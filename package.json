@@ -1,0 +1,50 @@
+{
+  "name": "khatabar",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Khatabar: the gym's paper register rebuilt for the 7 am counter rush.",
+  "author": "Rutvi Rupani",
+  "license": "UNLICENSED",
+  "scripts": {
+    "dev": "next dev -p 3720",
+    "build": "next build",
+    "start": "next start -p 3720",
+    "typecheck": "tsc --noEmit",
+    "migrate": "node scripts/migrate.mjs",
+    "textures": "node scripts/bake-textures.mjs",
+    "contrast": "node scripts/contrast.mjs"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "sharp",
+      "@tailwindcss/oxide",
+      "unrs-resolver"
+    ]
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "1.2.0",
+    "@zxing/browser": "0.1.5",
+    "@zxing/library": "0.21.3",
+    "html-to-image": "1.11.13",
+    "motion": "14.13.0",
+    "next": "16.4.6",
+    "papaparse": "5.4.1",
+    "qrcode": "1.5.4",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "seedrandom": "3.0.5",
+    "server-only": "0.0.1",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.3.5",
+    "@types/node": "22",
+    "@types/papaparse": "5.3.15",
+    "@types/qrcode": "1.5.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@types/seedrandom": "3.0.8",
+    "tailwindcss": "4.3.5",
+    "typescript": "5.9.3"
+  }
+}
