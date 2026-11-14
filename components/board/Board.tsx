@@ -25,6 +25,7 @@ export function Board() {
   const sp = useSearchParams();
   const gridRef = useRef<HTMLDivElement>(null);
   const [colW, setColW] = useState(120);
+  const [rowH, setRowH] = useState(210);
   const [focusId, setFocusId] = useState<string | null>(sp.get("m"));
   const [kbDays, setKbDays] = useState<number | null>(null);
   const [ask, setAsk] = useState<null | { id: string; days: number }>(null);
@@ -35,7 +36,11 @@ export function Board() {
   useEffect(() => {
     const m = () => {
       setNarrow(window.innerWidth < 760);
-      if (gridRef.current) setColW(gridRef.current.getBoundingClientRect().width / 7);
+      if (gridRef.current) {
+        const r = gridRef.current.getBoundingClientRect();
+        setColW(r.width / 7);
+        setRowH(r.height / 2);
+      }
     };
     m();
     window.addEventListener("resize", m);
@@ -186,7 +191,7 @@ export function Board() {
           {!requests.length && <p className="t-hand text-[14px]" style={{ color: "var(--muted-on-paper)" }}>No requests waiting.</p>}
         </aside>
 
-        <section className="board relative overflow-hidden p-3" aria-label="Next 14 days" style={{ backgroundImage: `url(${ghost})`, backgroundSize: "cover" }}>
+        <section className="board relative flex flex-col overflow-hidden p-3" aria-label="Next 14 days" style={{ backgroundImage: `url(${ghost})`, backgroundSize: "cover" }}>
           {narrow ? (
             <div className="flex flex-col">
               {days.map((day) => {
@@ -206,11 +211,11 @@ export function Board() {
               })}
             </div>
           ) : (
-            <div ref={gridRef} className="relative grid grid-cols-7">
+            <div ref={gridRef} className="relative grid min-h-[420px] flex-1 grid-cols-7 grid-rows-2">
               {days.map((day, i) => {
                 const here = onBoard.filter((x) => x.endDate === day);
                 return (
-                  <div key={day} className="relative min-h-[210px] border-r border-[rgba(29,58,107,.12)] p-2" style={{ borderTop: i >= 7 ? "1px dashed rgba(29,58,107,.2)" : undefined }}>
+                  <div key={day} className="relative min-h-[210px] overflow-hidden border-r border-[rgba(29,58,107,.12)] p-2" style={{ borderTop: i >= 7 ? "1px dashed rgba(29,58,107,.2)" : undefined }}>
                     <div className="t-hand text-[16px]" style={{ color: day === today ? "var(--margin-red)" : "var(--ink)" }}>
                       {(lang === "hi" ? WD_HI : WD)[weekday(day)]} {Number(day.slice(-2))}
                       {day === today ? " · today" : ""}
@@ -239,7 +244,7 @@ export function Board() {
                   const endI = diffDays(st.endDate, today);
                   const fromI = endI - f.days;
                   if (endI < 0 || endI > 13) return null;
-                  const pos = (k: number) => ({ x: (Math.max(0, Math.min(13, k)) % 7) * colW + 26, y: (Math.max(0, Math.min(13, k)) >= 7 ? 210 : 0) + 64 });
+                  const pos = (k: number) => ({ x: (Math.max(0, Math.min(13, k)) % 7) * colW + 26, y: (Math.max(0, Math.min(13, k)) >= 7 ? rowH : 0) + 64 });
                   const a = pos(fromI);
                   const b = pos(endI);
                   return (
@@ -255,6 +260,7 @@ export function Board() {
             </div>
           )}
           {!onBoard.length && <p className="t-hand p-6 text-[18px]" style={{ color: "var(--muted-on-paper)" }}>Nobody ends in the next 14 days.</p>}
+          <MarkerTray />
         </section>
       </div>
 
@@ -286,6 +292,49 @@ export function Board() {
       )}
       <MarginNotes />
       {mode === "demo" && <span className="sr-only">Demo gym</span>}
+    </div>
+  );
+}
+
+/** The aluminium ledge under every gym whiteboard: two markers, the felt eraser, and the magnet key
+ *  written on the ledge in marker, because that is where the desk boy looks for it. */
+function MarkerTray() {
+  const key: [keyof typeof PLATE, string][] = [
+    ["p25", "lapsed"],
+    ["p20", "due"],
+    ["p15", "0-3 days"],
+    ["p10", "4-7 days"],
+    ["p5", "8-14 days"],
+  ];
+  return (
+    <div className="relative -mx-3 -mb-3 mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 px-4 py-2" style={{ background: "linear-gradient(var(--steel-hi), var(--steel) 45%, var(--steel-lo))", borderTop: "1px solid #fff8" }}>
+      <svg width="132" height="22" viewBox="0 0 132 22" aria-hidden className="max-[760px]:hidden">
+        <rect x="2" y="6" width="54" height="10" rx="2" fill="#1d3a6b" />
+        <rect x="56" y="7" width="8" height="8" fill="#e8e4d8" />
+        <rect x="70" y="6" width="54" height="10" rx="2" fill="#b5372a" transform="rotate(-3 97 11)" />
+      </svg>
+      <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        {key.map(([k, w]) => (
+          <span key={k} className="flex items-center gap-1.5">
+            <Magnet state={k} size={18} text="" />
+            <span className="t-hand text-[14px]" style={{ color: "var(--ink)" }}>
+              {w}
+            </span>
+          </span>
+        ))}
+        <span className="t-hand text-[14px]" style={{ color: "var(--stamp-freeze)" }}>
+          pin = member asked for a freeze
+        </span>
+      </span>
+      <span className="ml-auto flex items-center gap-2 max-[760px]:hidden">
+        <svg width="58" height="22" viewBox="0 0 58 22" aria-hidden>
+          <rect x="1" y="3" width="56" height="12" rx="2" fill="#2b2d31" />
+          <rect x="1" y="14" width="56" height="6" rx="1" fill="#8d8a80" />
+        </svg>
+        <span className="t-teko text-[13px]" style={{ color: "var(--iron-rim)" }}>
+          E erases
+        </span>
+      </span>
     </div>
   );
 }

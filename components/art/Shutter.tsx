@@ -16,22 +16,96 @@ function shiftLine() {
   return { hi: `शाम ${t}`, en: "Evening shift" };
 }
 
-function Slat({ i, children }: { i: number; children?: ReactNode }) {
+// One rolled-steel slat profile, tiled 12 times down the screen: a lip, two convex ribs and a groove.
+const RIBS =
+  "linear-gradient(to bottom, var(--steel-hi) 0, var(--steel-hi) 1px, #7d8385 1px, #b4b9ba 10%, var(--steel) 30%, var(--steel-lo) 45%, #50555a 48.5%, #c2c6c7 51.5%, var(--steel) 66%, var(--steel-lo) 92%, #3f4345 100%)";
+// Grime that belongs to the whole shopfront, so it lines up across slats: rust where the shutter meets the
+// floor, vertical rain streaks and a shine where hands push it up every morning.
+const GRIME = [
+  "radial-gradient(70% 16% at 14% 101%, rgba(122,59,44,.34), transparent 70%)",
+  "radial-gradient(40% 10% at 84% 100%, rgba(122,59,44,.26), transparent 70%)",
+  "radial-gradient(22% 9% at 50% 93%, rgba(255,255,255,.16), transparent 70%)",
+  "repeating-linear-gradient(90deg, rgba(40,30,20,.06) 0 1px, transparent 1px 23px, rgba(255,255,255,.05) 23px 24px, transparent 24px 61px, rgba(60,45,30,.05) 61px 63px, transparent 63px 97px)",
+  "linear-gradient(to bottom, rgba(0,0,0,.18), transparent 22%, transparent 78%, rgba(40,25,15,.16))",
+].join(",");
+
+/** A slat is a full-screen layer clipped to its band, so anything painted across the shutter (the sign)
+ *  is cut along the same seams and breaks apart slat by slat as they ratchet up. */
+function SlatLayer({ i, children }: { i: number; children?: ReactNode }) {
+  const top = 100 - ((i + 1) * 100) / SLATS;
+  const bot = (i * 100) / SLATS;
   return (
     <div
-      className="absolute inset-x-0"
+      className="absolute inset-0"
       style={{
-        bottom: `${(i * 100) / SLATS}%`,
-        height: `${100 / SLATS + 0.2}%`,
-        background: "linear-gradient(to bottom, var(--steel-hi) 0, var(--steel-hi) 1px, var(--steel) 2px, var(--steel-lo) 100%)",
-        borderBottom: "1px solid #4c5153",
-        boxShadow: "inset 0 -3px 0 rgba(0,0,0,.12)",
+        clipPath: `inset(${Math.max(0, top - 0.15)}% 0 ${Math.max(0, bot - 0.15)}% 0)`,
+        backgroundImage: `${GRIME}, ${RIBS}`,
+        backgroundSize: `100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% ${100 / SLATS}%`,
+        backgroundColor: "var(--steel)",
       }}
     >
-      <div className="absolute inset-x-0 top-[38%] h-px bg-black/10" />
-      <div className="absolute inset-x-0 bottom-[22%] h-[2px]" style={{ background: "linear-gradient(to right, transparent, rgba(0,0,0,.08) 20%, rgba(0,0,0,.02) 50%, rgba(0,0,0,.1) 80%, transparent)" }} />
       {children}
+      {i === 0 && <BottomRail />}
     </div>
+  );
+}
+
+/** The angle-iron bottom rail with the two pull handles every shop boy knows. */
+function BottomRail() {
+  return (
+    <div className="absolute inset-x-0 bottom-0 h-[14px]" style={{ background: "linear-gradient(#5a5f62, #2c2f31 60%, #1b1d1e)", borderTop: "1px solid var(--steel-hi)" }} aria-hidden>
+      {[22, 78].map((x) => (
+        <svg key={x} className="absolute -top-[22px]" style={{ left: `calc(${x}% - 30px)` }} width="60" height="26" viewBox="0 0 60 26">
+          <path d="M6 24 V10 a8 8 0 0 1 8 -8 H46 a8 8 0 0 1 8 8 V24" fill="none" stroke="#2a2d2f" strokeWidth="6" strokeLinecap="round" />
+          <path d="M6 24 V10 a8 8 0 0 1 8 -8 H46 a8 8 0 0 1 8 8 V24" fill="none" stroke="var(--steel-hi)" strokeWidth="1.4" strokeLinecap="round" opacity=".7" transform="translate(-1 -1)" />
+          <rect x="1" y="20" width="10" height="6" fill="#3a3e40" />
+          <rect x="49" y="20" width="10" height="6" fill="#3a3e40" />
+        </svg>
+      ))}
+    </div>
+  );
+}
+
+/** The sign a signwriter painted straight onto the slats: brass stencil, chalk-white second line, a
+ *  double painted frame, slight overspray and chips where the paint has worn. */
+function PaintedSign({ gym, line, branch }: { gym: string; line: { hi: string; en: string }; branch: string }) {
+  // one line when the whole name fits; on a phone a long name breaks between words instead of shrinking to nothing
+  const word = Math.max(5, ...gym.split(/\s+/).map((w) => w.length));
+  const size = `min(168px, max(calc((100vw - 96px) / ${(Math.max(6, gym.length) * 0.56).toFixed(2)}), min(calc((100vw - 120px) / ${(word * 0.56).toFixed(2)}), 64px)))`;
+  return (
+    <div className="pointer-events-none absolute inset-x-0 flex justify-center px-4" style={{ top: "15%" }} aria-hidden>
+      <div className="relative px-[4vw] pb-5 pt-6 text-center" style={{ border: "3px solid rgba(179,139,77,.85)", outline: "1.5px solid rgba(179,139,77,.7)", outlineOffset: "5px", maxWidth: "calc(100vw - 56px)" }}>
+        <div className="paint t-stencil" style={{ textWrap: "balance", color: "var(--brass)", fontSize: size, letterSpacing: "0.03em", textShadow: "0 0 7px rgba(179,139,77,.45), 0 0 1px rgba(80,55,20,.6)" }}>
+          {gym}
+        </div>
+        <div className="t-teko mt-3 text-[clamp(15px,2.2vw,24px)]" style={{ color: "rgba(241,238,228,.92)", textShadow: "0 0 5px rgba(241,238,228,.3), 0 1px 0 rgba(0,0,0,.35)" }}>
+          {line.hi && (
+            <>
+              <span lang="hi">{line.hi}</span> · {line.en} ·{" "}
+            </>
+          )}
+          {branch}
+        </div>
+      </div>
+      {/* every shutter on the street has one */}
+      <div className="paint t-stencil absolute right-[9%] top-[245%] -rotate-1 text-[clamp(18px,2.6vw,34px)] max-[640px]:hidden" style={{ color: "rgba(181,55,42,.78)", letterSpacing: "0.12em" }}>
+        NO PARKING
+      </div>
+    </div>
+  );
+}
+
+/** Guide channels with their bolts, fixed to the wall, so they stay put while the curtain moves. */
+function Rails() {
+  const rail = (side: "left" | "right") => ({
+    background: `radial-gradient(circle 2.5px at 50% 50%, #1d1f20 60%, var(--steel-hi) 70%, transparent 80%) 0 0 / 100% 88px repeat-y, linear-gradient(to ${side === "left" ? "right" : "left"}, #2c2f31, #6b7072 40%, #3a3e40 70%, #1c1e1f)`,
+    boxShadow: side === "left" ? "6px 0 10px -4px rgba(0,0,0,.5)" : "-6px 0 10px -4px rgba(0,0,0,.5)",
+  });
+  return (
+    <>
+      <div className="pointer-events-none absolute inset-y-0 left-0 z-[15] w-3 sm:w-5" style={rail("left")} />
+      <div className="pointer-events-none absolute inset-y-0 right-0 z-[15] w-3 sm:w-5" style={rail("right")} />
+    </>
   );
 }
 
@@ -154,38 +228,26 @@ export function ShutterUp({ gym, branch, pin, hint, calm, onAct, onOpen, ctaLabe
     <AnimatePresence>
       {phase !== "done" && (
         <motion.div key="shutter" role="dialog" aria-modal="true" aria-label={`${gym} shutter. ${pin ? "Enter your 4 digit staff PIN" : ctaLabel}`} className="fixed inset-0 z-[80] overflow-hidden" exit={{ opacity: 0 }} transition={{ duration: calm ? 0.25 : 0.2 }} style={{ perspective: 1800 }}>
+          {/* warm tube-light from inside the gym spills out of the widening gap */}
+          {lifting && !calm && (
+            <motion.div className="pointer-events-none absolute inset-0" style={{ zIndex: 0, background: "linear-gradient(to top, rgba(210,174,110,.34), rgba(210,174,110,.08) 45%, transparent 75%)" }} initial={{ opacity: 0 }} animate={{ opacity: [0, 1, 0] }} transition={{ delay: 0.12, duration: 1.1, times: [0, 0.45, 1] }} />
+          )}
           {Array.from({ length: SLATS }, (_, i) => (
             <motion.div
               key={i}
               className="absolute inset-0"
-              style={{ transformOrigin: "50% 0%", zIndex: i }}
+              style={{ transformOrigin: "50% 0%", zIndex: i + 1 }}
               animate={lifting ? (calm ? { opacity: 0 } : { y: `-${((SLATS - i) * 100) / SLATS + 2}%`, rotateX: [0, 8, 0] }) : { y: 0 }}
               transition={calm ? { duration: 0.25 } : { delay: (120 + i * 40) / 1000, duration: 0.52, ease: EASE_DOOR }}
             >
-              <Slat i={i} />
+              <SlatLayer i={i}>
+                <PaintedSign gym={gym} line={line} branch={branch} />
+              </SlatLayer>
             </motion.div>
           ))}
-          {/* guide channels either side, like a real shopfront */}
-          <div className="pointer-events-none absolute inset-y-0 left-0 z-[15] w-3 sm:w-5" style={{ background: "linear-gradient(to right, #3a3e40, #6b7072 40%, #2c2f31)" }} />
-          <div className="pointer-events-none absolute inset-y-0 right-0 z-[15] w-3 sm:w-5" style={{ background: "linear-gradient(to left, #3a3e40, #6b7072 40%, #2c2f31)" }} />
-          {/* the painted sign across the middle slats */}
-          <motion.div className="absolute inset-x-0 z-20 flex flex-col items-center px-4" style={{ top: "22%" }} animate={lifting ? (calm ? { opacity: 0 } : { y: "-110vh" }) : { y: 0 }} transition={calm ? { duration: 0.25 } : { delay: 0.12 + 0.28, duration: 0.6, ease: EASE_DOOR }}>
-            <div className="iron max-w-[92vw] px-6 py-4 text-center sm:px-10">
-              <div className="t-stencil stamped break-words" style={{ color: "var(--brass)", fontSize: "clamp(34px, 8vw, 88px)" }}>
-                {gym}
-              </div>
-              <div className="t-teko mt-2 text-[18px] sm:text-[22px]" style={{ color: "var(--chalk-dust)" }}>
-                {line.hi && (
-                  <>
-                    <span lang="hi">{line.hi}</span> · {line.en} ·{" "}
-                  </>
-                )}
-                {branch}
-              </div>
-            </div>
-          </motion.div>
+          <Rails />
           {/* the bottom slat: padlock and the way in */}
-          <motion.div className="absolute inset-x-0 bottom-0 z-30 flex flex-col items-center gap-3 px-4 pb-[max(18px,env(safe-area-inset-bottom))]" animate={lifting ? (calm ? { opacity: 0 } : { y: "-110vh" }) : { y: 0 }} transition={calm ? { duration: 0.25 } : { delay: 0.12, duration: 0.52, ease: EASE_DOOR }}>
+          <motion.div className="absolute inset-x-0 bottom-0 z-30 flex flex-col items-center gap-3 px-4 pb-[max(44px,calc(env(safe-area-inset-bottom)+30px))]" animate={lifting ? (calm ? { opacity: 0 } : { y: "-110vh" }) : { y: 0 }} transition={calm ? { duration: 0.25 } : { delay: 0.12, duration: 0.52, ease: EASE_DOOR }}>
             <motion.svg width="46" height="56" viewBox="0 0 46 56" animate={lifting && !calm ? { rotate: 90, y: 40, opacity: 0 } : { rotate: 0 }} transition={{ rotate: { type: "spring", stiffness: 500, damping: 30, duration: 0.16 }, y: { delay: 0.16, duration: 0.2 }, opacity: { delay: 0.16, duration: 0.2 } }} aria-hidden>
               <path d="M12 24v-8a11 11 0 0 1 22 0v8" fill="none" stroke="var(--steel-hi)" strokeWidth="5" />
               <rect x="4" y="22" width="38" height="30" rx="3" fill="var(--brass)" stroke="#6d5430" strokeWidth="2" />
@@ -257,7 +319,7 @@ export function ShutterUp({ gym, branch, pin, hint, calm, onAct, onOpen, ctaLabe
 }
 
 /** Shutter Down: drops back over the desk. stopAt=0.6 leaves a gap under hazard tape. */
-export function ShutterDown({ stopAt, calm, children }: { stopAt: number; calm: boolean; children?: ReactNode }) {
+export function ShutterDown({ stopAt, calm, children, sign }: { stopAt: number; calm: boolean; children?: ReactNode; sign?: string }) {
   return (
     <div className="fixed inset-0 z-[75] overflow-hidden" role="dialog" aria-modal="true" aria-label={stopAt < 1 ? "Shutter stopped: cash count does not match" : "Shift closed"}>
       {Array.from({ length: SLATS }, (_, i) => {
@@ -266,15 +328,16 @@ export function ShutterDown({ stopAt, calm, children }: { stopAt: number; calm: 
           <motion.div
             key={i}
             className="absolute inset-0"
-            style={{ zIndex: i, transformOrigin: "50% 0%" }}
+            style={{ zIndex: i + 1, transformOrigin: "50% 0%" }}
             initial={calm ? { opacity: 0 } : { y: `-${((SLATS - i) * 100) / SLATS + 2}%` }}
             animate={calm ? { opacity: 1 } : visible ? { y: ["-100%", "0.6%", "0%"] } : { y: `-${((SLATS - i) * 100) / SLATS + 2}%` }}
             transition={calm ? { duration: 0.15 } : { delay: ((SLATS - 1 - i) * 30) / 1000, duration: 0.7, times: [0, 0.85, 1], ease: EASE_DOOR }}
           >
-            {visible && <Slat i={i} />}
+            {visible && <SlatLayer i={i}>{sign && stopAt >= 1 && <PaintedSign gym={sign} line={{ hi: "", en: "" }} branch="Closed for the shift" />}</SlatLayer>}
           </motion.div>
         );
       })}
+      {stopAt >= 1 && <Rails />}
       {stopAt < 1 && <motion.div className="absolute inset-x-0 z-30 h-5 hazard" style={{ top: `calc(${stopAt * 100}% - 10px)` }} initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ delay: calm ? 0 : 0.8, duration: 0.25 }} />}
       <div className="absolute inset-0 z-40">{children}</div>
     </div>

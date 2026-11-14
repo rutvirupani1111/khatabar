@@ -150,6 +150,12 @@ button:disabled {
     repeating-linear-gradient(to bottom, transparent 0 31px, var(--ledger-rule) 31px 32px);
   color: var(--text-on-paper);
 }
+/* Queue Mode: 64 px rows written on every other rule */
+.ledger.ledger-tall {
+  background-image:
+    linear-gradient(to right, transparent 55px, var(--margin-red) 55px, var(--margin-red) 56px, transparent 56px, transparent 59px, var(--margin-red) 59px, var(--margin-red) 60px, transparent 60px),
+    repeating-linear-gradient(to bottom, transparent 0 63px, var(--ledger-rule) 63px 64px);
+}
 .ledger-plain {
   background-color: var(--ledger);
   background-image: repeating-linear-gradient(to bottom, transparent 0 31px, var(--ledger-rule) 31px 32px);
@@ -320,6 +326,8 @@ button:disabled {
   border-bottom-width: 2px;
   border-radius: 3px;
   opacity: 0.85;
+  line-height: 1;
+  vertical-align: 0.1em;
 }
 .field {
   height: 36px;
@@ -346,7 +354,7 @@ button:disabled {
   .btn-ink {
     min-height: 44px;
   }
-  .reg-row {
+  .reg-row:not(.reg-dense) {
     height: 44px !important;
   }
 }
@@ -408,4 +416,12 @@ button:disabled {
 }
 .scroll-thin::-webkit-scrollbar-track {
   background: transparent;
+}
+
+/* signwriter paint on the shutter: a baked noise mask chips the paint where hands and rain wore it */
+.paint {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.5' numOctaves='3' seed='11'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 -18 13.2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.5' numOctaves='3' seed='11'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 -18 13.2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  -webkit-mask-size: 260px 260px;
+  mask-size: 260px 260px;
 }

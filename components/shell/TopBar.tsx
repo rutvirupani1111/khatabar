@@ -103,7 +103,7 @@ export function TopBar({ right, compact }: { right?: ReactNode; compact?: boolea
   return (
     <header className="iron relative z-30 flex flex-wrap items-center gap-x-4 gap-y-2 px-3 py-2 sm:px-4" style={{ clipPath: "none", borderWidth: "0 0 2px" }}>
       <div className="flex min-w-0 items-center gap-3">
-        <Link href={mode === "demo" ? "/" : `${base}/desk`} className="t-stencil stamped max-w-[46vw] truncate text-[20px] leading-none sm:max-w-none sm:text-[24px]" style={{ color: "var(--brass)" }}>
+        <Link href={mode === "demo" ? "/" : `${base}/desk`} className="t-stencil stamped max-w-[34vw] text-[17px] leading-[0.95] [text-wrap:balance] sm:max-w-none sm:text-[24px]" style={{ color: "var(--brass)" }}>
           {snap?.org.name ?? "Khatabar"}
         </Link>
         {snap && (

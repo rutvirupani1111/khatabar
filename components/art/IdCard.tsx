@@ -32,6 +32,16 @@ export function IdCard({ st, gym, band, stamp, footer, layout = true, lang = "en
           <div style={{ width: "21cqw" }} className="[&>span]:!h-auto [&>span]:!w-full [&>span]:aspect-[1/1.2]">
             <Portrait name={st.m.name} photo={st.m.photo} size={84} />
           </div>
+          {/* printed under the photo on every laminated card: since when, and the member's own signature */}
+          <div className="t-teko mt-[1.6cqw]" style={{ fontSize: "2.6cqw", color: "#6a655a", lineHeight: 1.1 }}>
+            Since {st.m.createdAt ? fmtDay(st.m.createdAt.slice(0, 10)) : "-"}
+          </div>
+          <div className="t-hand truncate" style={{ fontSize: "4.2cqw", color: "var(--ink)", lineHeight: 1.2, borderBottom: "1px solid #9d988a", transform: "rotate(-3deg)", transformOrigin: "left bottom" }} aria-label="Member signature">
+            {st.m.name.split(" ")[0]}
+          </div>
+          <div className="t-teko" style={{ fontSize: "2.2cqw", color: "#8a857a" }}>
+            Signature
+          </div>
         </div>
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="line-clamp-2 font-semibold" style={{ fontSize: "5.2cqw", lineHeight: 1.1, color: "var(--text-on-paper)" }}>

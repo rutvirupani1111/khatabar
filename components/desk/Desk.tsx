@@ -113,6 +113,11 @@ function DeskInner() {
     return search(l, q);
   }, [d, q, filter, today]);
   const st = sel && d ? d.byId.get(sel) ?? null : null;
+  // the empty well's lesson uses a real member: the demo's 4521, else the first card in the register
+  const sample = useMemo(() => {
+    const x = d?.list.find((m) => m.m.phone.endsWith("4521")) ?? d?.list.find((m) => /\d{4}$/.test(m.m.phone));
+    return x ? { last4: x.m.phone.slice(-4), first: x.m.name.split(" ")[0] } : null;
+  }, [d]);
 
   const staffName = snap?.staff.find((s) => s.id === actor.staffId)?.name ?? "Desk";
 
@@ -458,7 +463,7 @@ function DeskInner() {
             </div>
           </div>
         ) : (
-          <motion.div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_440px] xl:grid-cols-[minmax(0,1fr)_460px_280px]" initial={false} animate={{ opacity: raised === false && !slateIn ? 0.6 : 1 }} transition={{ duration: 0.3 }}>
+          <motion.div className={`grid min-h-0 flex-1 grid-cols-1 ${queue && !st ? "lg:grid-cols-[minmax(0,1fr)_380px]" : "lg:grid-cols-[minmax(0,1fr)_440px] xl:grid-cols-[minmax(0,1fr)_460px_280px]"}`} initial={false} animate={{ opacity: raised === false && !slateIn ? 0.6 : 1 }} transition={{ duration: 0.3 }}>
             {/* the register */}
             <section className="ledger holes relative flex min-h-[60vh] flex-col lg:max-h-[calc(100dvh-64px)]" aria-label={t.register}>
               <div className="sticky top-0 z-10 flex flex-wrap items-center gap-2 pb-1 pl-[72px] pr-3 pt-2" style={{ background: "var(--ledger)" }}>
@@ -471,13 +476,13 @@ function DeskInner() {
                       setQ(e.target.value.replace(/^\//, ""));
                       setFocus(0);
                     }}
-                    placeholder={`/  ${t.searchPh}`}
+                    placeholder={queue ? "/  Scan, or type the last 4" : `/  ${t.searchPh}`}
                     className="field h-10 text-[16px]"
                     inputMode="search"
                     autoComplete="off"
                     aria-controls="kb-register"
                   />
-                  {queue && <span className="t-teko absolute right-1 text-[14px]" style={{ color: "var(--margin-red)" }}>QUEUE · scans land here</span>}
+                  {queue && <span className="t-teko absolute right-1 text-[14px] max-[760px]:hidden" style={{ color: "var(--margin-red)" }}>QUEUE · scans land here</span>}
                 </label>
                 {!queue && (
                   <div className="flex flex-wrap gap-1" role="group" aria-label="Filters">
@@ -510,7 +515,7 @@ function DeskInner() {
                   <TodayPage snap={snap} unsynced={unsynced} fresh={fresh} from={flyFrom} />
                 </div>
               )}
-              <div className="t-teko grid h-8 items-center gap-2 pr-3 text-[14px] max-[640px]:hidden" style={{ gridTemplateColumns: queue ? "40px 76px 1fr 110px 96px" : "64px 70px minmax(110px,1.3fr) 110px minmax(70px,.8fr) 64px 80px", color: "var(--carbon)" }}>
+              <div className="t-teko grid h-8 items-center gap-2 pr-3 text-[14px] max-[640px]:hidden" style={{ gridTemplateColumns: queue ? "64px 76px 1fr 110px 96px" : "64px 70px minmax(110px,1.3fr) 110px minmax(70px,.8fr) 64px 80px", color: "var(--carbon)" }}>
                 <span />
                 <span>No.</span>
                 <span>Name</span>
@@ -525,7 +530,7 @@ function DeskInner() {
                   <span lang="hi">बाकी</span> / state
                 </span>
               </div>
-              <div id="kb-register" className="scroll-thin min-h-0 flex-1 overflow-y-auto">
+              <div id="kb-register" className={`ledger ${queue ? "ledger-tall" : ""} scroll-thin min-h-0 flex-1 overflow-y-auto`} style={{ backgroundAttachment: "local" }}>
                 <Register list={list} q={q} focus={focus} selected={sel} onPick={pick} onFocus={setFocus} unsynced={unsynced} snap={snap} dense={queue} limit={limit} />
                 {list.length > limit && (
                   <button type="button" className="btn-ink my-2 ml-[72px]" onClick={() => setLimit((l) => l + 200)}>
@@ -587,13 +592,29 @@ function DeskInner() {
                     <MemberLedger snap={snap} memberId={st.m.id} />
                   </>
                 ) : (
-                  <EmptyWell />
+                  <EmptyWell
+                    sample={sample}
+                    typed={q}
+                    calm={calm}
+                    onType={(prefix) => {
+                      searchRef.current?.focus({ preventScroll: true });
+                      setQ(prefix);
+                      setFocus(0);
+                    }}
+                    onLift={() => {
+                      const hit = list[0];
+                      if (hit) {
+                        pick(hit.m.id);
+                        searchRef.current?.blur();
+                      }
+                    }}
+                  />
                 )}
               </section>
             )}
 
             {/* attendance and the pile */}
-            <aside className="iron flex min-h-[240px] flex-col lg:col-span-2 xl:col-span-1 xl:max-h-[calc(100dvh-64px)]" style={{ clipPath: "none", borderWidth: "0 0 0 2px" }} aria-label="Check-ins">
+            <aside className={`iron flex min-h-[240px] flex-col ${queue && !st ? "lg:max-h-[calc(100dvh-64px)]" : "lg:col-span-2 xl:col-span-1 xl:max-h-[calc(100dvh-64px)]"}`} style={{ clipPath: "none", borderWidth: "0 0 0 2px" }} aria-label="Check-ins">
               <div className="flex items-center justify-between px-3 pt-2">
                 <button type="button" className="btn-iron !min-h-8" onClick={() => setCamera((v) => !v)}>
                   <Icon name="scanner" size={16} /> Camera (C)
@@ -682,7 +703,7 @@ function DeskInner() {
             }}
           />
         )}
-        {closing && <CloseShutter closing={closing} calm={calm} onSign={finishClose} onCancel={() => setClosing(null)} undoAt={undo?.kind === "close" ? undo.at : 0} onReopen={doUndo} onNewShift={() => {
+        {closing && <CloseShutter gym={snap?.org.name} closing={closing} calm={calm} onSign={finishClose} onCancel={() => setClosing(null)} undoAt={undo?.kind === "close" ? undo.at : 0} onReopen={doUndo} onNewShift={() => {
           setClosing(null);
           setRaised(false);
           try {
@@ -711,25 +732,105 @@ function branchIdFromBase(base: string) {
   return base.split("/")[2] ?? "";
 }
 
-function EmptyWell() {
+/** The empty well teaches by doing: the key caps type into the real search box and Enter lifts the real card. */
+function EmptyWell({ sample, typed, calm, onType, onLift }: { sample: { last4: string; first: string } | null; typed: string; calm: boolean; onType: (prefix: string) => void; onLift: () => void }) {
   const { t } = useGym();
+  const [pressed, setPressed] = useState(-1);
+  const [busy, setBusy] = useState(false);
+  const digits = sample?.last4 ?? "4521";
+  const ready = !!sample && typed === digits;
+  const caps: PlateTone[] = ["25", "20", "15", "10"];
+  const play = () => {
+    if (busy || !sample) return;
+    if (calm) return onType(digits);
+    setBusy(true);
+    digits.split("").forEach((_, i) =>
+      setTimeout(() => {
+        setPressed(i);
+        onType(digits.slice(0, i + 1));
+        setTimeout(() => setPressed((p) => (p === i ? -1 : p)), 110);
+        if (i === digits.length - 1) setTimeout(() => setBusy(false), 140);
+      }, 120 + i * 170),
+    );
+  };
   return (
-    <div className="relative grid place-items-center" style={{ aspectRatio: "3.375 / 2.125" }}>
-      <svg viewBox="0 0 340 214" className="absolute inset-0 h-full w-full" aria-hidden>
-        <ChalkPath d="M14 20 Q170 6 326 18 Q334 107 324 196 Q170 208 16 198 Q6 107 14 20" width={2} color="var(--chalk-dust)" duration={0.8} />
-        <ChalkPath d="M150 22 L190 22" width={3} color="var(--chalk-dust)" delay={0.6} />
-      </svg>
-      <div className="relative px-8 text-center">
-        <p className="t-hand text-[22px] chalk-text">Lift a card.</p>
-        <p className="t-hand text-[17px]" style={{ color: "var(--chalk-dust)" }}>
-          Press <span className="kbd">/</span> and type the last 4 digits, or scan their QR. <span className="kbd">N</span> {t.newMember.toLowerCase()}.
-        </p>
+    <div className="flex flex-col gap-3">
+      <div className="relative" style={{ aspectRatio: "3.375 / 2.125" }}>
+        {/* the outline of the card that is about to lift into this well */}
+        <svg viewBox="0 0 340 214" className="absolute inset-0 h-full w-full" aria-hidden>
+          <ChalkPath d="M14 20 Q170 6 326 18 Q334 107 324 196 Q170 208 16 198 Q6 107 14 20" width={2} color="var(--chalk-dust)" duration={0.8} />
+          <ChalkPath d="M150 22 L190 22" width={3} color="var(--chalk-dust)" delay={0.6} />
+        </svg>
+        <div className="relative flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+          <p className="t-hand text-[22px] leading-none chalk-text">Lift a card.</p>
+          <p className="t-hand text-[16px] leading-tight" style={{ color: "var(--chalk-dust)" }}>
+            {ready ? (
+              <>
+                Found {sample?.first}. <span className="kbd">Enter</span> lifts the card.
+              </>
+            ) : (
+              <>Type the last 4 digits of their phone, or scan their QR.</>
+            )}
+          </p>
+          <div className="flex items-end gap-2">
+            <button type="button" onClick={play} disabled={busy || !sample} className="flex gap-1.5" aria-label={`Try it: type ${digits} into the search`}>
+              {digits.split("").map((c, i) => (
+                <KeyCap key={i} tone={caps[i]} label={c} down={pressed === i} lit={typed.length > i && typed.startsWith(digits.slice(0, i + 1))} />
+              ))}
+            </button>
+            <AnimatePresence>
+              {ready && (
+                <motion.button key="enter" type="button" onClick={onLift} initial={calm ? { opacity: 0 } : { opacity: 0, x: -12, scale: 0.9 }} animate={{ opacity: 1, x: 0, scale: 1 }} exit={{ opacity: 0 }} transition={{ type: "spring", stiffness: 420, damping: 30, mass: 1.4 }} aria-label={`Enter: lift ${sample?.first}'s card`}>
+                  <KeyCap tone="brass" label="Enter" wide />
+                </motion.button>
+              )}
+            </AnimatePresence>
+          </div>
+          {!ready && sample && (
+            <span className="t-teko text-[14px]" style={{ color: "var(--brass-hi)" }}>
+              Tap the keys to try it
+            </span>
+          )}
+        </div>
       </div>
+      {/* what comes after, written in the margin like a note to the new desk boy */}
+      <ol className="ledger-plain t-hand px-4 py-1 text-[15px] leading-[32px]" style={{ color: "var(--ink)" }}>
+        <li>
+          <span className="kbd">R</span> renews, <span className="kbd">2</span> loads a Quarterly plate, <span className="kbd">Shift</span>+<span className="kbd">P</span> takes cash.
+        </li>
+        <li>
+          <span className="kbd">C</span> checks them in. <span className="kbd">N</span> {t.newMember.toLowerCase()}. <span className="kbd">?</span> shows every key.
+        </li>
+      </ol>
     </div>
   );
 }
 
-function CloseShutter({ closing, calm, onSign, onCancel, undoAt, onReopen, onNewShift }: { closing: { fig: DrawerFigures; stage: "matched" | "short" | "done"; closeId?: string }; calm: boolean; onSign: (f: DrawerFigures, reason: string, pin: string) => string | null; onCancel: () => void; undoAt: number; onReopen: () => void; onNewShift: () => void }) {
+type PlateTone = "25" | "20" | "15" | "10" | "brass";
+const CAP: Record<PlateTone, { bg: string; edge: string; ink: string }> = {
+  "25": { bg: "var(--plate-25)", edge: "#7d1c15", ink: "var(--chalk)" },
+  "20": { bg: "var(--plate-20)", edge: "#122e54", ink: "var(--chalk)" },
+  "15": { bg: "var(--plate-15)", edge: "#8a6a12", ink: "var(--iron-rim)" },
+  "10": { bg: "var(--plate-10)", edge: "#245c39", ink: "var(--iron-rim)" },
+  brass: { bg: "linear-gradient(var(--brass-hi), var(--brass))", edge: "#6d5430", ink: "var(--brass-ink)" },
+};
+
+/** A key cap cast like a bumper plate: it sinks 3 px when pressed and lights once its digit is in the box. */
+function KeyCap({ tone, label, down, lit, wide }: { tone: PlateTone; label: string; down?: boolean; lit?: boolean; wide?: boolean }) {
+  const c = CAP[tone];
+  return (
+    <motion.span
+      className="t-stencil relative grid place-items-center"
+      style={{ width: wide ? 76 : 44, height: 44, background: c.bg, color: c.ink, fontSize: wide ? 20 : 24, borderRadius: 5, boxShadow: `inset 0 1px 0 rgba(255,255,255,.25), 0 4px 0 ${c.edge}, 0 6px 8px -2px rgba(0,0,0,.6)`, outline: lit ? "2px solid var(--chalk)" : "none", outlineOffset: 2 }}
+      animate={{ y: down ? 3 : 0, boxShadow: down ? `inset 0 1px 0 rgba(255,255,255,.2), 0 1px 0 ${c.edge}, 0 2px 3px -1px rgba(0,0,0,.6)` : `inset 0 1px 0 rgba(255,255,255,.25), 0 4px 0 ${c.edge}, 0 6px 8px -2px rgba(0,0,0,.6)` }}
+      transition={{ duration: 0.08 }}
+    >
+      {label}
+    </motion.span>
+  );
+}
+
+function CloseShutter({ gym, closing, calm, onSign, onCancel, undoAt, onReopen, onNewShift }: { gym?: string; closing: { fig: DrawerFigures; stage: "matched" | "short" | "done"; closeId?: string }; calm: boolean; onSign: (f: DrawerFigures, reason: string, pin: string) => string | null; onCancel: () => void; undoAt: number; onReopen: () => void; onNewShift: () => void }) {
   const [reason, setReason] = useState("");
   const [pin, setPin] = useState("");
   const [err, setErr] = useState("");
@@ -742,7 +843,7 @@ function CloseShutter({ closing, calm, onSign, onCancel, undoAt, onReopen, onNew
   }, [closing.stage, undoAt]);
   if (closing.stage === "done")
     return (
-      <ShutterDown stopAt={1} calm={calm}>
+      <ShutterDown stopAt={1} calm={calm} sign={gym}>
         <div className="absolute inset-0 grid place-items-center">
           <div className="flex flex-col items-center gap-4">
             <Stamp kind="closed" word="CLOSED" sub={istClock(Date.now())} seed={closing.closeId ?? "c"} size={1.6} />

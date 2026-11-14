@@ -51,7 +51,7 @@ export function Register({ list, q, focus, selected, onPick, onFocus, unsynced, 
   useEffect(() => {
     box.current?.querySelector<HTMLElement>(`[data-i="${focus}"]`)?.scrollIntoView({ block: "nearest" });
   }, [focus]);
-  const h = dense ? 56 : 32;
+  const h = dense ? 64 : 32; // two ruled lines in Queue Mode, so rows never sit across a rule
   const shown = list.slice(0, limit);
   return (
     <div ref={box} role="listbox" aria-label="Members" className="relative">
@@ -75,17 +75,17 @@ export function Register({ list, q, focus, selected, onPick, onFocus, unsynced, 
               onFocus(i);
               onPick(st.m.id);
             }}
-            className="reg-row grid cursor-pointer items-center gap-2 pr-3 text-[13px] max-[640px]:!h-auto max-[640px]:py-1"
+            className={`reg-row grid cursor-pointer items-center gap-2 pr-3 ${dense ? "reg-dense text-[16px]" : "text-[13px] max-[640px]:!h-auto max-[640px]:py-1"}`}
             style={{
               height: h,
-              gridTemplateColumns: dense ? "40px 76px 1fr 110px 96px" : "64px 70px minmax(110px,1.3fr) 110px minmax(70px,.8fr) 64px 80px",
+              gridTemplateColumns: dense ? "64px 76px 1fr 110px 96px" : "64px 70px minmax(110px,1.3fr) 110px minmax(70px,.8fr) 64px 80px",
               background: sel ? "rgba(29,58,107,.10)" : on ? "rgba(29,58,107,.05)" : undefined,
               outline: on ? "1.5px solid var(--ink)" : undefined,
               outlineOffset: -2,
             }}
           >
-            <span className="flex items-center justify-end gap-1 pr-2">
-              <Plate state={st.plate} size={dense ? 36 : 22} frozen={!!st.frozenNow} title={`${c.en}`} label="" />
+            <span className={`flex items-center justify-end gap-1 ${dense ? "pr-[10px]" : "pr-2"}`}>
+              <Plate state={st.plate} size={dense ? 28 : 22} frozen={!!st.frozenNow} title={`${c.en}`} label="" />
             </span>
             <span className="t-mono text-[12px]" style={{ color: "var(--muted-on-paper)" }}>
               {st.m.memberNo}

@@ -21,7 +21,7 @@ export function Landing() {
       branch="Gym ka register, counter ki speed par"
       calm={fx === "calm"}
       ctaLabel="Raise shutter"
-      hint={<>Enter or Space walks into the demo desk. Scroll to read the register page first.</>}
+      hint={<>Enter, Space or the button walks into the demo desk. Scroll or swipe up to read the register page first.</>}
       onOpen={(via) => {
         setShow(false);
         // a scroll or swipe rolls the shutter up over the register page; a click or key walks into the desk

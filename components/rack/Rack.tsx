@@ -300,7 +300,7 @@ export function Rack() {
         <Barbell
           height={84}
           bend={bend}
-          label={`${loaded.length} plates loaded, ${rupees(total)}`}
+          label={`${loaded.length} ${loaded.length === 1 ? "plate" : "plates"} loaded, ${rupees(total)}`}
           left={
             <>
               {loaded.filter((_, k) => k % 2 === 0).slice(0, 12).map((id) => {
@@ -317,7 +317,7 @@ export function Rack() {
         >
           <div className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 text-center">
             <div className="t-mono tnum text-[14px]" style={{ color: "var(--brass-hi)" }}>
-              {loaded.length} plates · {rupees(total)}
+              {loaded.length} {loaded.length === 1 ? "plate" : "plates"} · {rupees(total)}
             </div>
           </div>
         </Barbell>
