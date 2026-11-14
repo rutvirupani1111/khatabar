@@ -73,7 +73,8 @@ export function ShutterUp({ gym, branch, pin, hint, calm, onAct, onOpen, ctaLabe
   const fired = useRef(false);
   const btn = useRef<HTMLButtonElement>(null);
   const pinRef = useRef<HTMLInputElement>(null);
-  const line = useRef(shiftLine()).current;
+  const [line, setLine] = useState({ hi: "", en: "" });
+  useEffect(() => setLine(shiftLine()), []);
 
   const via = useRef<"key" | "click" | "wheel" | "touch" | "pin">("click");
   const raise = useCallback((how: "key" | "click" | "wheel" | "touch" | "pin" = "click") => {
@@ -174,7 +175,12 @@ export function ShutterUp({ gym, branch, pin, hint, calm, onAct, onOpen, ctaLabe
                 {gym}
               </div>
               <div className="t-teko mt-2 text-[18px] sm:text-[22px]" style={{ color: "var(--chalk-dust)" }}>
-                <span lang="hi">{line.hi}</span> · {line.en} · {branch}
+                {line.hi && (
+                  <>
+                    <span lang="hi">{line.hi}</span> · {line.en} ·{" "}
+                  </>
+                )}
+                {branch}
               </div>
             </div>
           </motion.div>

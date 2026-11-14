@@ -536,7 +536,7 @@ function DeskInner() {
             </section>
 
             {/* the card well */}
-            {!queue && (
+            {(!queue || st) && (
               <section className="relative flex flex-col gap-3 p-4 lg:max-h-[calc(100dvh-64px)] lg:overflow-y-auto scroll-thin" aria-label="Card well">
                 {camera && <CameraStrip onCode={(c) => void onScan(c)} onClose={() => setCamera(false)} />}
                 {st ? (
