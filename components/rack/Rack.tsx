@@ -303,7 +303,7 @@ export function Rack() {
           label={`${loaded.length} plates loaded, ${rupees(total)}`}
           left={
             <>
-              {loaded.slice(0, 12).map((id) => {
+              {loaded.filter((_, k) => k % 2 === 0).slice(0, 12).map((id) => {
                 const x = d.byId.get(id);
                 return x ? (
                   <motion.span key={id} initial={{ x: -30, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={PLATE_SPRING}>
@@ -313,7 +313,7 @@ export function Rack() {
               })}
             </>
           }
-          right={<>{loaded.slice(12, 24).map((id) => { const x = d.byId.get(id); return x ? <PlateSide key={id} state={x.plate} h={Math.round(sizeOf(amountOf(x)) * 1.2)} w={8} /> : null; })}</>}
+          right={<>{loaded.filter((_, k) => k % 2 === 1).slice(0, 12).map((id) => { const x = d.byId.get(id); return x ? <PlateSide key={id} state={x.plate} h={Math.round(sizeOf(amountOf(x)) * 1.2)} w={8} /> : null; })}</>}
         >
           <div className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 text-center">
             <div className="t-mono tnum text-[14px]" style={{ color: "var(--brass-hi)" }}>
