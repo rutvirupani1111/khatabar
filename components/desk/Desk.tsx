@@ -101,8 +101,16 @@ function DeskInner() {
   const ready = status === "ready" && !!snap;
   useEffect(() => {
     if (raised && ready && !coarse) {
-      const id = setTimeout(() => searchRef.current?.focus({ preventScroll: true }), 30);
-      return () => clearTimeout(id);
+      // the register mounts behind the shutter's exit, so keep trying until the box exists,
+      // and never pull the caret out of a field someone has already clicked into
+      const ids = [30, 200, 600, 1200].map((ms) =>
+        setTimeout(() => {
+          const a = document.activeElement;
+          if (a && a !== document.body && a !== searchRef.current) return;
+          searchRef.current?.focus({ preventScroll: true });
+        }, ms),
+      );
+      return () => ids.forEach(clearTimeout);
     }
   }, [raised, ready, coarse]);
 
