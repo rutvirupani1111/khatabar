@@ -9,7 +9,8 @@ import { Barbell, InkTick, Plate, PLATE, PLATE_SPRING, PlateSide, Stamp } from "
 import { IdCard } from "@/components/art/IdCard";
 import { MarginNotes, TopBar } from "@/components/shell/TopBar";
 import { useDerived, useGym, useGymState, useSnap } from "@/components/shell/Gym";
-import { message } from "@/components/shell/links";
+import { askFor, message } from "@/components/shell/links";
+import { ssGet, ssSet } from "@/lib/client/idb";
 import { fmtDay, istClock, istParts, todayIST, addDays } from "@/lib/core/dates";
 import { rupees, uid, waLink } from "@/lib/core/money";
 import type { MemberState } from "@/lib/core/state";
@@ -35,7 +36,8 @@ function stageFor(st: MemberState): Stage {
   return "pre7";
 }
 
-const amountOf = (st: MemberState) => (st.dues > 0 ? st.dues : st.plan?.price ?? 0);
+// what this member's reminder asks for: the next term plus old dues, or the dues alone
+const amountOf = (st: MemberState) => askFor(st, stageFor(st)).total;
 const sizeOf = (paise: number) => {
   const r = paise / 100;
   const t = Math.max(0, Math.min(1, (Math.log(Math.max(300, r)) - Math.log(300)) / (Math.log(12000) - Math.log(300))));
@@ -54,7 +56,22 @@ export function Rack() {
   const [tplLang, setTplLang] = useState<Lang>(lang);
   const [tplStage, setTplStage] = useState<Stage | "auto">("auto");
   const [walk, setWalk] = useState(false);
+  const [dock, setDock] = useState(false);
   const barRef = useRef<HTMLDivElement>(null);
+  const loadKey = `kb_rack_bar_${snap?.branch.id ?? ""}`;
+  // Esc pauses a walk and the bar stays loaded for later, even across a reload
+  const [restored, setRestored] = useState(false);
+  useEffect(() => {
+    if (!snap || restored) return;
+    try {
+      const saved = JSON.parse(ssGet(loadKey) ?? "[]");
+      if (Array.isArray(saved) && saved.length) setLoaded(saved.filter((x) => typeof x === "string"));
+    } catch {}
+    setRestored(true);
+  }, [snap, restored, loadKey]);
+  useEffect(() => {
+    if (restored) ssSet(loadKey, JSON.stringify(loaded));
+  }, [loaded, restored, loadKey]);
 
   const f = { state: sp.get("state"), plan: sp.get("plan"), trainer: sp.get("trainer"), rem: sp.get("rem"), view: sp.get("view") };
   const setParam = (k: string, v: string | null) => {
@@ -97,7 +114,12 @@ export function Rack() {
   const flat = useMemo(() => PEGS.flatMap((p) => byPeg.get(p.k)!), [byPeg]);
   const cur = flat[Math.min(focus, flat.length - 1)];
   const loadedSet = new Set(loaded);
-  const total = loaded.reduce((a, id) => a + amountOf(d?.byId.get(id) ?? ({ dues: 0 } as MemberState)), 0);
+  const onBar = loaded.map((id) => d?.byId.get(id)).filter((x): x is MemberState => !!x);
+  const total = onBar.reduce((a, x) => a + amountOf(x), 0);
+  // the bar says which money it is: renewals asked for, and old dues already owed
+  const owed = onBar.reduce((a, x) => a + x.dues, 0);
+  const toRenew = total - owed;
+  const barText = `${loaded.length} ${loaded.length === 1 ? "plate" : "plates"} · ${toRenew ? `${rupees(toRenew)} to renew` : ""}${toRenew && owed ? " · " : ""}${owed ? `${rupees(owed)} owed` : ""}${!total ? rupees(0) : ""}`;
   const bend = Math.min(6, 0.8 * Math.log2(1 + total / 100 / 1000));
 
   // "Remind all" on the owner slate arrives with the bar already loaded
@@ -138,7 +160,7 @@ export function Rack() {
     <div className="floor flex min-h-dvh flex-col">
       <TopBar />
       <div className="knurl-strip" />
-      <div className="flex flex-wrap items-center gap-2 px-3 py-2 sm:px-5" role="toolbar" aria-label="Filters (also in the URL)">
+      <div className="navrow flex items-center gap-2 px-3 py-2 max-sm:flex-nowrap max-sm:overflow-x-auto sm:flex-wrap sm:px-5" role="toolbar" aria-label="Filters (also in the URL)">
         <Chip on={!f.state} onClick={() => setParam("state", null)}>
           All pegs
         </Chip>
@@ -176,7 +198,7 @@ export function Rack() {
         </Chip>
       </div>
 
-      <div className="grid flex-1 gap-4 px-3 pb-44 sm:px-5 lg:grid-cols-[300px_1fr]">
+      <div className="grid flex-1 gap-4 px-3 pb-28 sm:px-5 sm:pb-44 lg:grid-cols-[300px_1fr]">
         {/* the collar: language, template, live preview */}
         <aside className="iron order-2 flex flex-col gap-3 p-4 lg:order-1" aria-label="Message">
           <div className="flex gap-1" role="radiogroup" aria-label="Language">
@@ -202,7 +224,7 @@ export function Rack() {
               <div className="t-teko text-[14px] muted">
                 Preview for {preview.m.name} · {STAGE_LABEL[tplStage === "auto" ? stageFor(preview) : tplStage]}
               </div>
-              <Bubble text={message(snap, mode, preview, tplStage === "auto" ? stageFor(preview) : tplStage, tplLang, staffName)} />
+              <Bubble text={message(snap, mode, preview, tplStage === "auto" ? stageFor(preview) : tplStage, tplLang, staffName)} ask={askFor(preview, tplStage === "auto" ? stageFor(preview) : tplStage)} />
             </>
           ) : (
             <p className="t-hand text-[16px]" style={{ color: "var(--chalk-dust)" }}>
@@ -297,6 +319,20 @@ export function Rack() {
 
       {/* the loaded bar */}
       <div className="fixed inset-x-0 bottom-0 z-20 border-t-2 border-[var(--iron-rim)] bg-[var(--rubber-raised)] px-3 pb-[max(10px,env(safe-area-inset-bottom))] pt-2 sm:px-6" ref={barRef}>
+        {/* phone: a 72 px strip with the count and Rack it; tap the strip to open the whole bar */}
+        <div className="flex min-h-14 items-center gap-2 sm:hidden">
+          <button type="button" className="flex min-h-11 min-w-0 flex-1 flex-col items-start justify-center text-left" aria-expanded={dock} onClick={() => setDock((v) => !v)}>
+            {/* the whole sum, wrapped rather than cut: which part is renewals and which is owed */}
+            <span className="t-mono tnum text-[12px] leading-tight" style={{ color: "var(--brass-hi)" }}>
+              {barText}
+            </span>
+            <span className="t-teko text-[13px] muted">{dock ? "Hide the bar" : "Show the bar"}</span>
+          </button>
+          <button type="button" className="btn-brass shrink-0" disabled={!loaded.length} onClick={() => setWalk(true)}>
+            Rack it
+          </button>
+        </div>
+        <div className={dock ? "max-sm:block" : "max-sm:hidden"}>
         <Barbell
           height={84}
           bend={bend}
@@ -315,20 +351,21 @@ export function Rack() {
           }
           right={<>{loaded.filter((_, k) => k % 2 === 1).slice(0, 12).map((id) => { const x = d.byId.get(id); return x ? <PlateSide key={id} state={x.plate} h={Math.round(sizeOf(amountOf(x)) * 1.2)} w={8} /> : null; })}</>}
         >
-          <div className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 text-center">
+          <div className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 whitespace-nowrap text-center">
             <div className="t-mono tnum text-[14px]" style={{ color: "var(--brass-hi)" }}>
-              {loaded.length} {loaded.length === 1 ? "plate" : "plates"} · {rupees(total)}
+              {barText}
             </div>
           </div>
         </Barbell>
         <div className="flex flex-wrap items-center justify-center gap-2">
-          <button type="button" className="btn-brass" disabled={!loaded.length} onClick={() => setWalk(true)}>
+          <button type="button" className="btn-brass max-sm:hidden" disabled={!loaded.length} onClick={() => setWalk(true)}>
             Rack it (Enter)
           </button>
           <button type="button" className="btn-iron" disabled={!loaded.length} onClick={() => setLoaded([])}>
             Unload
           </button>
-          <span className="t-teko text-[14px] muted">J K move · Space load · Shift+Space whole peg · drag plates onto the bar</span>
+          <span className="t-teko text-[14px] muted max-sm:hidden">J K move · Space load · Shift+Space whole peg · drag plates onto the bar</span>
+        </div>
         </div>
       </div>
 
@@ -363,12 +400,14 @@ function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; chi
   );
 }
 
-export function Bubble({ text }: { text: string }) {
+export function Bubble({ text, ask }: { text: string; ask?: { price: number; dues: number; total: number } }) {
   return (
     <div className="relative px-3 py-2 text-[14px] leading-snug" style={{ background: "var(--ledger)", color: "var(--text-on-paper)", border: "2px solid var(--chalk)", borderRadius: "14px 14px 14px 3px", boxShadow: "3px 3px 0 rgba(0,0,0,.35)" }}>
       {text}
-      <div className="t-mono mt-1 text-right text-[11px]" style={{ color: "var(--muted-on-paper)" }}>
-        {text.length} chars
+      <div className="t-mono mt-1 flex justify-between gap-2 text-[11px]" style={{ color: "var(--muted-on-paper)" }}>
+        {/* the sum the member is asked for, spelled out before anyone presses Send */}
+        <span>{ask && ask.total ? (ask.price && ask.dues ? `asks ${rupees(ask.total)} = renewal ${rupees(ask.price)} + dues ${rupees(ask.dues)}` : ask.dues ? `asks ${rupees(ask.dues)} dues` : `asks ${rupees(ask.price)} renewal`) : ""}</span>
+        <span>{text.length} chars</span>
       </div>
     </div>
   );
@@ -427,7 +466,7 @@ function SendWalk({ ids, lang, stage, onDone }: { ids: string[]; lang: Lang; sta
   const [fell, setFell] = useState<string | null>(null);
   const [skipAsk, setSkipAsk] = useState(false);
   const [quietOk, setQuietOk] = useState(false);
-  const [demoLink, setDemoLink] = useState("");
+  const [demoLink, setDemoLink] = useState<{ id: string; url: string } | null>(null);
   const startState = useRef(new Map(ids.map((id) => [id, { dues: d.byId.get(id)?.dues ?? 0, end: d.byId.get(id)?.endDate }]))).current;
   const staffName = snap.staff.find((s) => s.id === actor.staffId)?.name ?? "Desk";
   const id = ids[i];
@@ -471,7 +510,7 @@ function SendWalk({ ids, lang, stage, onDone }: { ids: string[]; lang: Lang; sta
     const tickId = rid;
     setTicks((tk) => ({ ...tk, [st.m.id]: { at: Date.now(), rid: tickId } }));
     if (mode === "live") window.open(waLink(st.m.phone, text), "_blank", "noopener");
-    else setDemoLink(waLink(st.m.phone, text));
+    else setDemoLink({ id: st.m.id, url: waLink(st.m.phone, text) });
     setQuietOk(false);
     setTimeout(() => setI((x) => (ids[x] === st.m.id ? x + 1 : x)), 600);
   };
@@ -537,7 +576,7 @@ function SendWalk({ ids, lang, stage, onDone }: { ids: string[]; lang: Lang; sta
                 <div className="mx-auto w-full max-w-[420px]">
                   <IdCard st={st} gym={snap.org.name} band={snap.branch.color} layout={false} stamp={ticks[st.m.id] ? <Stamp kind="paid" word="OPENED" sub={istClock(ticks[st.m.id].at)} seed={st.m.id + "o"} size={0.6} /> : undefined} />
                 </div>
-                <Bubble text={text} />
+                <Bubble text={text} ask={askFor(st, stg)} />
                 {fell && <p className="t-hand text-[18px]" style={{ color: "var(--hazard)" }}>{fell}</p>}
                 {quiet && quietOk && <p className="t-hand text-[17px]" style={{ color: "var(--hazard)" }}>It is {istClock(Date.now())}, outside 8 am to 9 pm. Press Enter again if you still want to open it.</p>}
                 {ticks[st.m.id] && (
@@ -545,7 +584,8 @@ function SendWalk({ ids, lang, stage, onDone }: { ids: string[]; lang: Lang; sta
                     <InkTick color="var(--chalk)" /> opened {istClock(ticks[st.m.id].at)} by {staffName}
                   </p>
                 )}
-                {demoLink && mode === "demo" && <p className="t-mono break-all text-[11px] muted">Demo: would open {demoLink.slice(0, 90)}…</p>}
+                {/* the preview line belongs to the member it was opened for, never the next plate */}
+                {demoLink && demoLink.id === st.m.id && mode === "demo" && <p className="t-mono break-all text-[11px] muted">Demo: would open {demoLink.url.slice(0, 90)}…</p>}
                 <button type="button" className="btn-brass !min-h-14 !text-[24px]" onClick={open}>
                   Open WhatsApp (Enter)
                 </button>

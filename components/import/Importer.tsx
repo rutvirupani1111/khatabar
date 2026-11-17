@@ -7,9 +7,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ChalkPath, SPRING } from "@/components/art";
 import { MarginNotes, TopBar } from "@/components/shell/TopBar";
 import { useGym, useSnap } from "@/components/shell/Gym";
-import { ambiguous, FIELDS, guessMapping, parseRows, type FieldKey, type ParsedRow } from "@/lib/core/importer";
-import { fmtDay } from "@/lib/core/dates";
+import { ambiguous, FIELDS, guessMapping, headerRowOf, inferOrder, parseRows, type FieldKey, type ParsedRow } from "@/lib/core/importer";
+import { fmtDate, fmtDay, todayIST } from "@/lib/core/dates";
 import { rupees, uid } from "@/lib/core/money";
+import type { ImportRec } from "@/lib/core/types";
 
 const SAMPLE = `Sr no\tnaam\tmob no\tPackage\tDOJ\tvalid till\tfees\tbaki\tremark
 1\tRamesh Pandya\t+91 90000 01101\t3 month\t02/09/26\t01/12/26\t3200\t0\tmorning batch
@@ -26,12 +27,16 @@ const SAMPLE = `Sr no\tnaam\tmob no\tPackage\tDOJ\tvalid till\tfees\tbaki\tremar
 type Step = "load" | "map" | "check" | "saving" | "done";
 
 export function Importer() {
-  const { store, mode, base } = useGym();
+  const { store, mode, base, calm } = useGym();
   const snap = useSnap();
   const [step, setStep] = useState<Step>("load");
   const [fileName, setFileName] = useState("");
-  const [headers, setHeaders] = useState<string[]>([]);
-  const [rows, setRows] = useState<unknown[][]>([]);
+  // the whole sheet as read; the header row is chosen inside it (title lines above it are skipped)
+  const [raw, setRaw] = useState<unknown[][]>([]);
+  const [headerRow, setHeaderRow] = useState(0);
+  const headers = useMemo(() => (raw[headerRow] ?? []).map((x) => String(x ?? "").trim()), [raw, headerRow]);
+  const rows = useMemo(() => raw.slice(headerRow + 1), [raw, headerRow]);
+  const [failed, setFailed] = useState(0);
   const [map, setMap] = useState<Record<number, FieldKey | null>>({});
   const [order, setOrder] = useState<"dmy" | "mdy" | null>(null);
   const [focusCol, setFocusCol] = useState(0);
@@ -41,13 +46,21 @@ export function Importer() {
   const [err, setErr] = useState("");
   const [paste, setPaste] = useState("");
 
-  const load = (h: string[], r: unknown[][], name: string) => {
-    setHeaders(h.map((x) => String(x ?? "").trim()));
-    setRows(r);
+  const load = (all: unknown[][], name: string) => {
+    const hr = headerRowOf(all);
+    setRaw(all);
+    setHeaderRow(hr);
     setFileName(name);
-    setMap(guessMapping(h.map(String)));
+    setMap(guessMapping((all[hr] ?? []).map((x) => String(x ?? ""))));
+    setOrder(null);
     setStep("map");
     setErr("");
+  };
+  const moveHeader = (to: number) => {
+    const hr = Math.max(0, Math.min(Math.min(9, raw.length - 2), to));
+    setHeaderRow(hr);
+    setMap(guessMapping((raw[hr] ?? []).map((x) => String(x ?? ""))));
+    setOrder(null);
   };
 
   const onFile = async (f: File) => {
@@ -55,13 +68,13 @@ export function Importer() {
       if (/\.csv$/i.test(f.name)) {
         const Papa = (await import("papaparse")).default;
         const res = Papa.parse<string[]>(await f.text(), { skipEmptyLines: true });
-        load(res.data[0] ?? [], res.data.slice(1), f.name);
+        load(res.data, f.name);
       } else {
         const XLSX = await import("xlsx");
         const wb = XLSX.read(await f.arrayBuffer(), { cellDates: false });
         const ws = wb.Sheets[wb.SheetNames[0]];
         const data = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, raw: true, defval: "" });
-        load((data[0] ?? []).map(String), data.slice(1), f.name);
+        load(data, f.name);
       }
     } catch {
       setErr("Could not read that file. Try saving it as .xlsx or .csv, or paste the rows.");
@@ -71,17 +84,20 @@ export function Importer() {
     const lines = text.replace(/\r/g, "").split("\n").filter((l) => l.trim());
     if (lines.length < 2) return setErr("Paste the header row and at least one member row.");
     const split = (l: string) => (l.includes("\t") ? l.split("\t") : l.split(","));
-    load(split(lines[0]), lines.slice(1).map(split), name);
+    load(lines.map(split), name);
   };
 
   const existing = useMemo(() => new Set((snap?.members ?? []).filter((m) => !m.archivedAt).map((m) => m.phone)), [snap]);
   const dateCols = Object.entries(map).filter(([, v]) => v === "start" || v === "end" || v === "dob").map(([k]) => Number(k));
-  const needsOrder = order == null && dateCols.some((c) => ambiguous(rows.map((r) => r[c])));
-  const parsed: ParsedRow[] = useMemo(() => (snap ? parseRows(rows, map, snap.plans, order ?? "dmy", existing) : []), [rows, map, snap, order, existing]);
+  // one unambiguous date anywhere (30/11/2026) settles the order for every date column
+  const inferred = useMemo(() => inferOrder(rows, dateCols), [rows, dateCols.join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
+  const useOrder = order ?? inferred.order ?? "dmy";
+  const needsOrder = order == null && inferred.order == null && dateCols.some((c) => ambiguous(rows.map((r) => r[c])));
+  const parsed: ParsedRow[] = useMemo(() => (snap ? parseRows(rows, map, snap.plans, useOrder, existing) : []), [rows, map, snap, useOrder, existing]);
   const fixed = parsed.map((r) => {
     const e = edits[r.i];
     if (!e?.phone) return r;
-    const again = parseRows([rows[r.i]].map((x) => x.map((v, ci) => (map[ci] === "phone" ? e.phone : v))), map, snap!.plans, order ?? "dmy", existing)[0];
+    const again = parseRows([rows[r.i]].map((x) => x.map((v, ci) => (map[ci] === "phone" ? e.phone : v))), map, snap!.plans, useOrder, existing)[0];
     return { ...again, i: r.i };
   });
   const usable = fixed.filter((r) => !edits[r.i]?.skip && r.dupOf == null && !r.problems.length);
@@ -114,18 +130,16 @@ export function Importer() {
     setStep("saving");
     setProgress(0);
     if (mode === "demo") {
-      let n = 0;
-      for (const r of usable) {
-        const mid = uid();
-        const ok = store.run("member.add", { id: mid, name: r.name, phone: r.phone, source: "import", importId: id, notes: r.notes, gender: r.gender, consent: false });
-        if (ok.ok && r.plan && r.start) store.run("renew", { membershipId: uid(), memberId: mid, planId: r.plan.id, discount: Math.max(0, r.plan.price - (r.paid ?? 0) - (r.due ?? 0)), startDate: r.start, payments: r.paid ? [{ id: uid(), mode: "cash", amount: r.paid, state: "confirmed" }] : [] });
-        n++;
-        if (n % 3 === 0) {
-          setProgress(n);
-          await new Promise((res) => setTimeout(res, 40));
-        }
+      // one op files the whole batch with the same rules the server's import route uses
+      const res = store.run("import.rows", { importId: id, fileName, rows: usable.map((r) => ({ memberId: uid(), membershipId: uid(), paymentId: uid(), name: r.name, phone: r.phone!, planId: r.plan?.id ?? null, start: r.start, end: r.end, paid: r.paid ?? 0, due: r.due ?? 0, notes: r.notes, gender: r.gender, dob: r.dob })) });
+      const n = res.ok ? usable.length : 0;
+      if (!res.ok) setErr(res.error ?? "Nothing was filed");
+      setFailed(usable.length - n);
+      // the cards fan into the file one by one while the count runs
+      for (let k = 1; k <= n; k++) {
+        setProgress(k);
+        await new Promise((r2) => setTimeout(r2, calm ? 0 : 45));
       }
-      setProgress(n);
       setStep("done");
       return;
     }
@@ -141,16 +155,18 @@ export function Importer() {
       done += b.imported ?? 0;
       setProgress(done);
     }
+    setFailed(Math.max(0, payload.length - done));
     await store.refresh();
     setStep("done");
   };
 
-  const undo = async () => {
+  const undo = async (which = importId) => {
     if (!snap) return;
     if (mode === "demo") {
-      for (const m of snap.members.filter((x) => x.importId === importId)) store.run("member.archive", { id: m.id });
+      const r = store.run("import.undo", { id: which });
+      if (!r.ok) return store.note(r.error ?? "Not undone");
     } else {
-      const res = await fetch(`/api/b/${snap.branch.id}/import-undo`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ importId }) });
+      const res = await fetch(`/api/b/${snap.branch.id}/import-undo`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ importId: which }) });
       if (!res.ok) return store.note((await res.json().catch(() => ({}))).error ?? "Not undone");
       await store.refresh();
     }
@@ -169,6 +185,8 @@ export function Importer() {
           Bring the register you already keep. Your sheet stays on this device until you press Import. Importing never sends a message.
         </p>
         {err && <p className="t-hand mt-2 text-[16px]" style={{ color: "var(--margin-red)" }}>{err}</p>}
+
+        {(step === "load" || step === "done") && snap && <RecentImports list={snap.imports} onUndo={(id) => void undo(id)} />}
 
         {step === "load" && (
           <div className="mt-4 grid gap-4 md:grid-cols-2">
@@ -196,7 +214,7 @@ export function Importer() {
         )}
 
         {step === "map" && (
-          <MapStep headers={headers} rows={rows} map={map} setMap={setMap} focusCol={focusCol} setFocusCol={setFocusCol} onNext={() => setStep("check")} needsOrder={needsOrder} order={order} setOrder={setOrder} sample={rows[0] ?? []} />
+          <MapStep headers={headers} rows={rows} map={map} setMap={setMap} focusCol={focusCol} setFocusCol={setFocusCol} onNext={() => setStep("check")} needsOrder={needsOrder} order={order ?? inferred.order} setOrder={setOrder} sample={rows[0] ?? []} headerRow={headerRow} maxHeader={Math.min(9, raw.length - 2)} onHeader={moveHeader} dateSample={inferred.sample} />
         )}
 
         {step === "check" && (
@@ -215,19 +233,20 @@ export function Importer() {
               </div>
             </div>
             <div className="ledger mt-3 overflow-x-auto pb-2">
-              <div className="t-teko grid h-8 min-w-[760px] items-center gap-2 pl-[72px] pr-3 text-[14px]" style={{ gridTemplateColumns: "1.2fr 150px 100px 70px 70px 80px 1.4fr", color: "var(--carbon)" }}>
+              <div className="t-teko grid h-8 min-w-[840px] items-center gap-2 pl-[72px] pr-3 text-[14px]" style={{ gridTemplateColumns: "1.2fr 150px 100px 84px 84px 76px 76px 1.4fr", color: "var(--carbon)" }}>
                 <span>Name</span>
                 <span>Phone</span>
                 <span>Plan</span>
                 <span>Start</span>
                 <span>Expiry</span>
                 <span className="text-right">Paid</span>
+                <span className="text-right">Due</span>
                 <span>Check</span>
               </div>
               {fixed.map((r) => {
                 const bad = r.problems.length > 0 && !edits[r.i]?.skip;
                 return (
-                  <div key={r.i} className={`grid h-8 min-w-[760px] items-center gap-2 pl-[72px] pr-3 text-[13px] ${bad ? "hazard-edge" : ""}`} style={{ gridTemplateColumns: "1.2fr 150px 100px 70px 70px 80px 1.4fr", opacity: edits[r.i]?.skip || r.dupOf != null ? 0.45 : 1 }}>
+                  <div key={r.i} className={`grid h-8 min-w-[840px] items-center gap-2 pl-[72px] pr-3 text-[13px] ${bad ? "hazard-edge" : ""}`} style={{ gridTemplateColumns: "1.2fr 150px 100px 84px 84px 76px 76px 1.4fr", opacity: edits[r.i]?.skip || r.dupOf != null ? 0.45 : 1 }}>
                     <span className="truncate" style={{ color: "var(--ink)" }}>
                       {r.name || "-"}
                     </span>
@@ -237,9 +256,13 @@ export function Importer() {
                       <span className="t-mono">{r.phone}</span>
                     )}
                     <span className="t-teko text-[14px]">{r.plan?.nameEn ?? "-"}</span>
-                    <span className="t-mono text-[12px]">{fmtDay(r.start)}</span>
-                    <span className="t-mono text-[12px]">{fmtDay(r.end)}</span>
+                    <span className="t-mono text-[12px]">{fmtDate(r.start)}</span>
+                    <span className="t-mono text-[12px]">{fmtDate(r.end)}</span>
                     <span className="t-mono text-right text-[12px]">{r.paid != null ? rupees(r.paid) : "?"}</span>
+                    {/* the sheet's balance becomes this member's dues, so the owner checks it here before Import */}
+                    <span className="t-mono text-right text-[12px]" style={{ color: r.due ? "var(--stamp-due)" : undefined }}>
+                      {r.due != null ? (r.due ? rupees(r.due) : "-") : "?"}
+                    </span>
                     <span className="t-hand truncate text-[14px]" style={{ color: bad ? "var(--margin-red)" : "var(--stamp-paid)" }}>
                       {r.dupOf != null ? `same phone as row ${r.dupOf + 1}, merged` : r.problems.length ? r.problems.join(", ") : "ok"}
                       {bad && (
@@ -255,14 +278,14 @@ export function Importer() {
           </div>
         )}
 
-        {(step === "saving" || step === "done") && <CardFile total={usable.length} done={progress} finished={step === "done"} onUndo={() => void undo()} base={base} />}
+        {(step === "saving" || step === "done") && <CardFile total={usable.length} done={progress} failed={failed} finished={step === "done"} onUndo={() => void undo()} base={base} />}
       </main>
       <MarginNotes />
     </div>
   );
 }
 
-function MapStep({ headers, rows, map, setMap, focusCol, setFocusCol, onNext, needsOrder, order, setOrder, sample }: { headers: string[]; rows: unknown[][]; map: Record<number, FieldKey | null>; setMap: (m: Record<number, FieldKey | null>) => void; focusCol: number; setFocusCol: (n: number) => void; onNext: () => void; needsOrder: boolean; order: "dmy" | "mdy" | null; setOrder: (o: "dmy" | "mdy") => void; sample: unknown[] }) {
+function MapStep({ headers, rows, map, setMap, focusCol, setFocusCol, onNext, needsOrder, order, setOrder, sample, headerRow, maxHeader, onHeader, dateSample }: { headers: string[]; rows: unknown[][]; map: Record<number, FieldKey | null>; setMap: (m: Record<number, FieldKey | null>) => void; focusCol: number; setFocusCol: (n: number) => void; onNext: () => void; needsOrder: boolean; order: "dmy" | "mdy" | null; setOrder: (o: "dmy" | "mdy") => void; sample: unknown[]; headerRow: number; maxHeader: number; onHeader: (n: number) => void; dateSample: string | null }) {
   const box = useRef<HTMLDivElement>(null);
   const leftRefs = useRef<(HTMLDivElement | null)[]>([]);
   const rightRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -306,6 +329,26 @@ function MapStep({ headers, rows, map, setMap, focusCol, setFocusCol, onNext, ne
       <p className="t-hand text-[16px]" style={{ color: "var(--carbon)" }}>
         Chalk lines show our guess. Drag a line&apos;s end to another field to fix it, or focus a column and press the field&apos;s number. {rows.length} rows found.
       </p>
+      {/* sheets often carry a title line or two above the real headings */}
+      <div className="mt-2 flex items-center gap-2" role="group" aria-label="Header row">
+        <span className="t-teko text-[17px]" style={{ color: "var(--ink)" }}>
+          Header is on row
+        </span>
+        <button type="button" className="btn-ink !min-w-9 !px-0" aria-label="Header one row up" disabled={headerRow <= 0} onClick={() => onHeader(headerRow - 1)}>
+          -
+        </button>
+        <span className="t-stencil tnum w-8 text-center text-[24px]" style={{ color: "var(--ink)" }} aria-live="polite">
+          {headerRow + 1}
+        </span>
+        <button type="button" className="btn-ink !min-w-9 !px-0" aria-label="Header one row down" disabled={headerRow >= maxHeader} onClick={() => onHeader(headerRow + 1)}>
+          +
+        </button>
+        {headerRow > 0 && (
+          <span className="t-hand text-[15px]" style={{ color: "var(--muted-on-paper)" }}>
+            {headerRow === 1 ? "the line above it was skipped as a title" : `the ${headerRow} lines above it were skipped`}
+          </span>
+        )}
+      </div>
       <div ref={box} className="relative mt-3 grid grid-cols-[1fr_120px_1fr] gap-0 sm:grid-cols-[1fr_200px_1fr]" style={{ background: "#2b2f2c", padding: 16, border: "8px solid #7a5a36" }}>
         <div className="flex flex-col gap-2">
           {headers.map((h, i) => (
@@ -371,17 +414,28 @@ function MapStep({ headers, rows, map, setMap, focusCol, setFocusCol, onNext, ne
       </div>
       {needsOrder && (
         <div className="board mt-4 p-4" role="group" aria-label="Date order">
-          <p className="t-hand text-[19px]" style={{ color: "var(--ink)" }}>
-            Is 03/04 the 3rd of April or March 4th?
-          </p>
-          <div className="mt-2 flex gap-2">
-            <button type="button" className="btn-ink" onClick={() => setOrder("dmy")}>
-              3rd of April (day first)
-            </button>
-            <button type="button" className="btn-ink" onClick={() => setOrder("mdy")}>
-              March 4th (month first)
-            </button>
-          </div>
+          {(() => {
+            // ask with a date from their own sheet, written both ways
+            const m = /^(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{2,4})$/.exec(dateSample ?? "03/04/26") ?? ["", "3", "4", "26"];
+            const MON = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+            const a = Number(m[1]);
+            const b = Number(m[2]);
+            return (
+              <>
+                <p className="t-hand text-[19px]" style={{ color: "var(--ink)" }}>
+                  Your sheet says {dateSample ?? "03/04/26"}. Is that {a} {MON[b - 1]} or {b} {MON[a - 1]}?
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button type="button" className="btn-ink" onClick={() => setOrder("dmy")}>
+                    {a} {MON[b - 1]} (day first)
+                  </button>
+                  <button type="button" className="btn-ink" onClick={() => setOrder("mdy")}>
+                    {b} {MON[a - 1]} (month first)
+                  </button>
+                </div>
+              </>
+            );
+          })()}
         </div>
       )}
       <div className="mt-4 flex justify-end">
@@ -394,7 +448,53 @@ function MapStep({ headers, rows, map, setMap, focusCol, setFocusCol, onNext, ne
 }
 
 /** The rows become ID cards that fan into a card file, with a running count. */
-function CardFile({ total, done, finished, onUndo, base }: { total: number; done: number; finished: boolean; onUndo: () => void; base: string }) {
+/** Every import of the last day stays undoable from here, with the time left on its 24 hours. */
+export function RecentImports({ list, onUndo }: { list: ImportRec[]; onUndo: (id: string) => void }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30000);
+    return () => clearInterval(id);
+  }, []);
+  const recent = [...list].filter((x) => now - Date.parse(x.createdAt) < 7 * 86400000).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)).slice(0, 5);
+  if (!recent.length) return null;
+  return (
+    <section className="ledger mt-4 pb-1" aria-label="Recent imports">
+      <div className="t-teko flex h-8 items-center pl-[72px] pr-3 text-[16px]" style={{ color: "var(--margin-red)" }}>
+        Recent imports
+      </div>
+      {recent.map((x) => {
+        const left = 24 * 3600000 - (now - Date.parse(x.createdAt));
+        const h = Math.floor(left / 3600000);
+        const m = Math.floor((left % 3600000) / 60000);
+        return (
+          <div key={x.id} className="flex min-h-8 flex-wrap items-center gap-x-3 pl-[72px] pr-3 text-[13px]">
+            <span className="t-mono" style={{ color: "var(--muted-on-paper)" }}>
+              {fmtDay(todayIST(Date.parse(x.createdAt)))} {new Date(x.createdAt).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" })}
+            </span>
+            <span className="truncate" style={{ color: "var(--ink)" }}>
+              {x.fileName || "pasted rows"} · {x.rowCount} {x.rowCount === 1 ? "member" : "members"}
+            </span>
+            {x.undoneAt ? (
+              <span className="t-teko text-[14px]" style={{ color: "var(--muted-on-paper)" }}>
+                undone
+              </span>
+            ) : left > 0 ? (
+              <button type="button" className="btn-ink ml-auto !min-h-7" onClick={() => onUndo(x.id)}>
+                Undo import · {h}h {m}m left
+              </button>
+            ) : (
+              <span className="t-teko ml-auto text-[14px]" style={{ color: "var(--muted-on-paper)" }}>
+                kept for good
+              </span>
+            )}
+          </div>
+        );
+      })}
+    </section>
+  );
+}
+
+function CardFile({ total, done, failed, finished, onUndo, base }: { total: number; done: number; failed: number; finished: boolean; onUndo: () => void; base: string }) {
   return (
     <div className="mt-6 flex flex-col items-center gap-4">
       <div className="relative h-[180px] w-[300px]">
@@ -405,8 +505,10 @@ function CardFile({ total, done, finished, onUndo, base }: { total: number; done
           ))}
         </AnimatePresence>
       </div>
-      <div className="t-stencil tnum text-[48px]" style={{ color: "var(--ink)" }}>
-        {done} / {total}
+      <div className="t-stencil tnum text-center text-[44px]" style={{ color: "var(--ink)" }}>
+        {done} filed
+        {finished && <span className="t-teko block text-[20px]" style={{ color: failed ? "var(--margin-red)" : "var(--carbon)" }}>{failed} failed</span>}
+        {!finished && <span className="t-teko block text-[20px]" style={{ color: "var(--carbon)" }}>of {total}</span>}
       </div>
       {finished && (
         <>

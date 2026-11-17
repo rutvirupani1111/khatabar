@@ -136,6 +136,8 @@ export function demoSnapshot(branchCode: "LP" | "LV" = "LP", now = Date.now()): 
   const usedPhones = new Set<string>(["4521"]);
   let receipt = 0;
   const pay = (memberId: string, msId: string | null, amount: number, mode: Payment["mode"], at: string, state: Payment["state"] = "confirmed", by = pick(["st-ravi", "st-ravi", "st-sunita"])) => {
+    // a member who owes the whole term paid nothing: no ₹0 line in the register
+    if (amount <= 0) return;
     payments.push({
       id: id("pay"),
       orgId,
@@ -255,17 +257,22 @@ export function demoSnapshot(branchCode: "LP" | "LV" = "LP", now = Date.now()): 
     const lastActive = sp.days < 0 ? chainEnd : today;
     const stopAt = sp.churn ? addDays(today, -sp.churn) : lastActive;
     const evening = rng() < 0.4;
+    // visits draw from their own stream: how many fall before "now" depends on the clock, and that
+    // must never shift who the next member is (LP-0064 is the same person in every browser, every hour)
+    const vr = seedrandom(`lohapuri-v1-${branchCode}-visits-${no}`);
+    const vint = (a: number, b: number) => a + Math.floor(vr() * (b - a + 1));
     for (let dd = 0; dd <= 56; dd++) {
       const date = addDays(firstDay, dd);
       if (date < joined || date > stopAt) continue;
       const fr = freezes.find((f) => f.memberId === memberId && f.state === "approved" && f.fromDate <= date && f.toDate >= date);
       if (fr) continue;
-      if (rng() > sp.rhythm / 7) continue;
-      const h = evening ? int(17, 20) : int(5, 8);
-      const mm = int(0, 59);
+      if (vr() > sp.rhythm / 7) continue;
+      const h = evening ? vint(17, 20) : vint(5, 8);
+      const mm = vint(0, 59);
+      const scan = vr() < 0.7;
       const iso = at(date, h, mm);
       if (date === today && Date.parse(iso) > now) continue;
-      checkins.push({ id: id("ci"), branchId, memberId, at: iso, istDate: date, istHour: h, method: rng() < 0.7 ? "desk_scan" : "desk_manual", staffId: "st-ravi", onCredit: false });
+      checkins.push({ id: `${branchCode.toLowerCase()}-ci-${no}-${dd}`, branchId, memberId, at: iso, istDate: date, istHour: h, method: scan ? "desk_scan" : "desk_manual", staffId: "st-ravi", onCredit: false });
     }
   });
 

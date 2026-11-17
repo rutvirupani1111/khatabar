@@ -22,10 +22,15 @@ export function Landing() {
       calm={fx === "calm"}
       ctaLabel="Raise shutter"
       hint={<>Enter, Space or the button walks into the demo desk. Scroll or swipe up to read the register page first.</>}
+      touchHint={<>Tap Raise shutter for the desk, or swipe up to read the page first.</>}
       onOpen={(via) => {
         setShow(false);
         // a scroll or swipe rolls the shutter up over the register page; a click or key walks into the desk
-        if (via === "wheel" || via === "touch") return;
+        if (via === "wheel" || via === "touch") {
+          // start at the top of the page, not wherever the raising swipe would have carried it
+          requestAnimationFrame(() => window.scrollTo({ top: 0 }));
+          return;
+        }
         lsSet(`kb_shutter_br-maninagar_${todayIST()}`, "1");
         router.push("/demo/desk");
       }}

@@ -74,6 +74,16 @@ function DeskInner() {
   const [limit, setLimit] = useState(120);
   const searchRef = useRef<HTMLInputElement>(null);
   const well = useRef<WellApi>(null);
+  // Enter on an empty search only lifts a row the person moved to on purpose (J/K, arrows or a click)
+  const navd = useRef(false);
+  const lastG = useRef(0);
+  const coarse = useCoarse();
+  const wellSection = useRef<HTMLElement>(null);
+  const refocus = useCallback(() => {
+    navd.current = false;
+    setFocus(0);
+    setTimeout(() => searchRef.current?.focus({ preventScroll: true }), 0);
+  }, []);
   const filter = (params.get("f") ?? "all") as (typeof FILTERS)[number]["k"];
   const branchId = snap?.branch.id ?? "";
   const shiftKey = `kb_shift_${branchId}`;
@@ -85,6 +95,23 @@ function DeskInner() {
     if (!branchId) return;
     setRaised(lsGet(flagKey) === "1" && (mode === "demo" || status === "ready"));
   }, [branchId, flagKey, status, mode]);
+
+  // the shutter was already up today (a reload): the caret goes straight to the search box,
+  // so 4521 + Enter at 6:48 finds the member instead of lifting whoever is on row one
+  const ready = status === "ready" && !!snap;
+  useEffect(() => {
+    if (raised && ready && !coarse) {
+      const id = setTimeout(() => searchRef.current?.focus({ preventScroll: true }), 30);
+      return () => clearTimeout(id);
+    }
+  }, [raised, ready, coarse]);
+
+  // phone: a lifted card scrolls into view instead of landing below the fold
+  useEffect(() => {
+    if (!coarse || !sel) return;
+    const id = setTimeout(() => wellSection.current?.scrollIntoView({ block: "start", behavior: "smooth" }), 80);
+    return () => clearTimeout(id);
+  }, [coarse, sel]);
 
   // 7 am Queue Mode switches itself on in the owner's rush hours
   useEffect(() => {
@@ -113,6 +140,8 @@ function DeskInner() {
     return search(l, q);
   }, [d, q, filter, today]);
   const st = sel && d ? d.byId.get(sel) ?? null : null;
+  // phone with a card lifted: the register shrinks to the matched rows so the card is in reach
+  const compact = coarse && !!st;
   // the empty well's lesson uses a real member: the demo's 4521, else the first card in the register
   const sample = useMemo(() => {
     const x = d?.list.find((m) => m.m.phone.endsWith("4521")) ?? d?.list.find((m) => /\d{4}$/.test(m.m.phone));
@@ -168,9 +197,15 @@ function DeskInner() {
   useEffect(() => {
     if (mode !== "demo" || typeof BroadcastChannel === "undefined") return;
     const ch = new BroadcastChannel("kb-demo");
-    ch.onmessage = (m) => m.data?.type === "scan" && void onScan(m.data.code);
+    ch.onmessage = async (m) => {
+      if (m.data?.type !== "scan") return;
+      const ev = await scan(m.data.code, "desk_scan");
+      handleEvent(ev);
+      // the member's phone hears the desk's verdict, so the card can tick or warn
+      ch.postMessage({ type: "scan-result", kind: ev.kind, text: ev.text, memberId: ev.st?.m.id ?? null, at: Date.now() });
+    };
     return () => ch.close();
-  }, [mode, onScan]);
+  }, [mode, scan, handleEvent]);
 
   const pick = useCallback((id: string) => {
     setSel(id);
@@ -181,6 +216,8 @@ function DeskInner() {
     const age = Date.now() - (undo.kind === "pay" ? undo.l.at : undo.at);
     if (undo.kind === "pay") {
       if (age > 8000) return store.note("Past 8 seconds. Use a logged reversal with a manager PIN.");
+      // the stamp lifts off the card in the same motion it landed with
+      well.current?.lift(undo.l.memberId);
       if (store.dropUnsynced(undo.l.opId)) store.note("Stamp lifted. Nothing was saved.", "ink");
       else {
         for (const id of undo.l.paymentIds) {
@@ -224,29 +261,43 @@ function DeskInner() {
         return searchRef.current?.focus();
       }
       if (e.key === "M" && e.shiftKey && !inField) return toggleCalm();
+      if (e.key === "g" || e.key === "G") lastG.current = Date.now();
       // the well gets first say when a card is lifted
       if (st && well.current && !inSearch && well.current.key(e)) return;
       if (inSearch) {
         if (e.key === "ArrowDown") {
           e.preventDefault();
+          navd.current = true;
           setFocus((f) => Math.min(list.length - 1, f + 1));
         } else if (e.key === "ArrowUp") {
           e.preventDefault();
+          navd.current = true;
           setFocus((f) => Math.max(0, f - 1));
         } else if (e.key === "Enter") {
           e.preventDefault();
-          const hit = list[focus];
+          // an empty box never lifts row one: only a typed query or a row chosen on purpose
+          const hit = q.trim() || navd.current ? list[focus] : undefined;
           if (hit) {
             pick(hit.m.id);
             searchRef.current?.blur();
           }
         } else if (e.key === "Escape") {
           if (q) setQ("");
-          else searchRef.current?.blur();
+          else if (sel) setSel(null);
+          navd.current = false;
         }
         return;
       }
       if (inField) return;
+      // type-to-search: digits and plain letters typed anywhere on the desk go into the search box
+      if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.length === 1 && (/^[0-9]$/.test(e.key) || (/^[a-z]$/.test(e.key) && !"jknqcg".includes(e.key) && !(pileFocus >= 0 && "lx".includes(e.key)))) && Date.now() - lastG.current > 1200) {
+        e.preventDefault();
+        navd.current = false;
+        setQ((v) => (v + e.key).replace(/^\//, ""));
+        setFocus(0);
+        searchRef.current?.focus({ preventScroll: true });
+        return;
+      }
       if (pileFocus >= 0 && pile[pileFocus]) {
         const ev = pile[pileFocus];
         if (e.key === "Enter") return pileAct(ev, ev.kind === "photo" ? "photo-ok" : "open");
@@ -262,20 +313,25 @@ function DeskInner() {
         case "j":
         case "ArrowDown":
           e.preventDefault();
+          navd.current = true;
           setFocus((f) => Math.min(list.length - 1, f + 1));
           return;
         case "k":
         case "ArrowUp":
           e.preventDefault();
+          navd.current = true;
           setFocus((f) => Math.max(0, f - 1));
           return;
         case "Enter":
-          if (list[focus]) pick(list[focus].m.id);
+          e.preventDefault();
+          if ((q.trim() || navd.current) && list[focus]) pick(list[focus].m.id);
+          else searchRef.current?.focus({ preventScroll: true });
           return;
         case "Escape":
           if (camera) setCamera(false);
           else if (sel) setSel(null);
           else setPileFocus(-1);
+          refocus();
           return;
         case "n":
         case "N":
@@ -352,13 +408,17 @@ function DeskInner() {
     setUndo({ kind: "pay", l });
     setToast({ text: `${rupees(l.amount)} written in today's page.`, pay: l });
     setTimeout(() => setToast((t0) => (t0?.pay === l ? null : t0)), 8000);
+    // the line has landed: the caret is back in the search box for the next person in the queue
+    refocus();
   };
 
   // W on the toast sends the receipt; Esc skips
   useEffect(() => {
     if (!toast?.pay) return;
     const on = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement).closest("input,textarea")) return;
+      const el = e.target as HTMLElement;
+      // the empty search box (where the caret waits after a stamp) still lets W send the receipt
+      if (el.closest("input,textarea") && !(el === searchRef.current && !searchRef.current.value)) return;
       if (e.key === "w" || e.key === "W") {
         e.preventDefault();
         e.stopImmediatePropagation();
@@ -425,7 +485,6 @@ function DeskInner() {
     return snap.checkins
       .filter((c) => c.istDate === today)
       .sort((a, b) => (a.at < b.at ? 1 : -1))
-      .slice(0, 8)
       .map((c) => ({ id: c.id, kind: "ok" as const, st: d.byId.get(c.memberId), time: istClock(c.at), text: c.onCredit ? "On credit" : c.method === "self_geo" ? "Self, by location" : c.method === "photo_check" ? "Photo check" : "Present" }));
   }, [snap, d, today]);
   const inToday = snap ? snap.checkins.filter((c) => c.istDate === today).length : 0;
@@ -465,7 +524,7 @@ function DeskInner() {
         ) : (
           <motion.div className={`grid min-h-0 flex-1 grid-cols-1 ${queue && !st ? "lg:grid-cols-[minmax(0,1fr)_380px]" : "lg:grid-cols-[minmax(0,1fr)_440px] xl:grid-cols-[minmax(0,1fr)_460px_280px]"}`} initial={false} animate={{ opacity: raised === false && !slateIn ? 0.6 : 1 }} transition={{ duration: 0.3 }}>
             {/* the register */}
-            <section className="ledger holes relative flex min-h-[60vh] flex-col lg:max-h-[calc(100dvh-64px)]" aria-label={t.register}>
+            <section className={`ledger relative flex flex-col lg:max-h-[calc(100dvh-64px)] ${compact ? "" : "min-h-[60vh]"}`} aria-label={t.register}>
               <div className="sticky top-0 z-10 flex flex-wrap items-center gap-2 pb-1 pl-[72px] pr-3 pt-2" style={{ background: "var(--ledger)" }}>
                 <label className="relative flex min-w-[220px] flex-1 items-center">
                   <span className="sr-only">{t.searchPh}</span>
@@ -507,11 +566,8 @@ function DeskInner() {
                   </div>
                 )}
               </div>
-              {!q && !queue && filter === "all" && (
+              {!q && !queue && filter === "all" && !compact && (
                 <div className="pb-1">
-                  <div className="t-teko flex h-8 items-center pl-[72px] text-[16px]" style={{ color: "var(--margin-red)" }}>
-                    <span lang="hi">आज</span>&nbsp;· Today&apos;s page
-                  </div>
                   <TodayPage snap={snap} unsynced={unsynced} fresh={fresh} from={flyFrom} />
                 </div>
               )}
@@ -530,9 +586,23 @@ function DeskInner() {
                   <span lang="hi">बाकी</span> / state
                 </span>
               </div>
-              <div id="kb-register" className={`ledger ${queue ? "ledger-tall" : ""} scroll-thin min-h-0 flex-1 overflow-y-auto`} style={{ backgroundAttachment: "local" }}>
-                <Register list={list} q={q} focus={focus} selected={sel} onPick={pick} onFocus={setFocus} unsynced={unsynced} snap={snap} dense={queue} limit={limit} />
-                {list.length > limit && (
+              <div id="kb-register" className={`ledger punched ${queue ? "ledger-tall" : ""} scroll-thin min-h-0 flex-1 overflow-y-auto`} style={{ backgroundAttachment: "local" }}>
+                <Register
+                  list={compact ? (q ? list.slice(0, 3) : list.filter((x) => x.m.id === sel)) : list}
+                  q={q}
+                  focus={focus}
+                  selected={sel}
+                  onPick={pick}
+                  onFocus={(i) => {
+                    navd.current = true;
+                    setFocus(i);
+                  }}
+                  unsynced={unsynced}
+                  snap={snap}
+                  dense={queue}
+                  limit={limit}
+                />
+                {list.length > limit && !compact && (
                   <button type="button" className="btn-ink my-2 ml-[72px]" onClick={() => setLimit((l) => l + 200)}>
                     Show {Math.min(200, list.length - limit)} more of {list.length}
                   </button>
@@ -542,7 +612,19 @@ function DeskInner() {
 
             {/* the card well */}
             {(!queue || st) && (
-              <section className="relative flex flex-col gap-3 p-4 lg:max-h-[calc(100dvh-64px)] lg:overflow-y-auto scroll-thin" aria-label="Card well">
+              <section ref={wellSection} className="relative flex scroll-mt-2 flex-col gap-3 p-4 lg:max-h-[calc(100dvh-64px)] lg:overflow-y-auto scroll-thin" aria-label="Card well">
+                {compact && (
+                  <button
+                    type="button"
+                    className="btn-iron self-start"
+                    onClick={() => {
+                      setSel(null);
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }}
+                  >
+                    Back to the register
+                  </button>
+                )}
                 {camera && <CameraStrip onCode={(c) => void onScan(c)} onClose={() => setCamera(false)} />}
                 {st ? (
                   <>
@@ -718,6 +800,7 @@ function DeskInner() {
             calm={calm}
             pin={mode === "live" ? raise : undefined}
             hint={mode === "demo" ? <>Space, a scroll or a swipe raises it. In the demo you are Ravi at the desk; the manager PIN is 4321.</> : <>Only a staff PIN raises the shutter</>}
+            touchHint={mode === "demo" ? <>Swipe up or tap Raise shutter</> : undefined}
             onAct={(a) => a === "slate" && setSlateIn(true)}
             onOpen={opened}
           />
@@ -928,4 +1011,17 @@ function LockedSlate({ base }: { base: string }) {
       </a>
     </div>
   );
+}
+
+/** Phones and tablets: the desk folds into one column, so a lifted card has to come to the thumb. */
+function useCoarse() {
+  const [c, setC] = useState(false);
+  useEffect(() => {
+    const m = window.matchMedia("(pointer: coarse)");
+    const on = () => setC(m.matches);
+    on();
+    m.addEventListener("change", on);
+    return () => m.removeEventListener("change", on);
+  }, []);
+  return c;
 }

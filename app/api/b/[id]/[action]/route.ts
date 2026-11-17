@@ -1,6 +1,6 @@
 // Owner tools for one branch: pairing a desk tablet, staff PINs, import batches,
 // undoing an import, and the members CSV export.
-import { addMonths, planEnd } from "@/lib/core/dates";
+import { addDays, addMonths, planEnd } from "@/lib/core/dates";
 import { cleanPhone } from "@/lib/core/money";
 import type { Role } from "@/lib/core/types";
 import { actorFor, hashSecret, memberToken, sha256, shortId } from "@/lib/server/auth";
@@ -74,15 +74,21 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           const mid = `m_${shortId(14)}`;
           await q.query(`insert into members (id, org_id, branch_id, member_no, name, phone, gender, dob, notes, source, import_id) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,'import',$10)`, [mid, br.org_id, id, `${br.code}-${String(seq).padStart(4, "0")}`, r.name.trim().slice(0, 80), phone, r.gender ?? "", r.dob, (r.notes ?? "").slice(0, 300), b.importId]);
           await q.query(`insert into member_links (id, member_id, branch_id, token_hash) values ($1,$2,$3,$4)`, [shortId(16), mid, id, sha256(await memberToken(mid, 1))]);
+          // Same rules as the demo's import.rows op: no joining fee, the sheet's paid + due is the bill,
+          // and the paid part is an opening balance dated to the sheet's start, never today's cash.
           const plan = plans.find((p) => p.id === r.planId) ?? null;
+          const paid = Math.max(0, Math.round(Number(r.paid) || 0));
+          const due = Math.max(0, Math.round(Number(r.due) || 0));
           if (plan && (r.start || r.end)) {
-            const start = r.start ?? addMonths(r.end!, -Math.max(1, plan.months));
+            const start = r.start ?? (plan.months ? addDays(addMonths(r.end!, -plan.months), 1) : addDays(r.end!, 1 - Math.max(1, plan.days)));
             const end = r.end ?? planEnd(start, plan.months, plan.days);
             const msId = `ms_${shortId(14)}`;
-            const price = Math.round(r.paid + r.due) || plan.price;
-            await q.query(`insert into memberships (id, org_id, branch_id, member_id, plan_id, start_date, base_end_date, price, created_by) values ($1,$2,$3,$4,$5,$6,$7,$8,$9)`, [msId, br.org_id, id, mid, plan.id, start, end, price, actor.staffId]);
-            if (r.paid > 0)
-              await q.query(`insert into payments (id, org_id, branch_id, member_id, membership_id, amount, mode, state, received_by, confirmed_by, confirmed_at, created_at) values ($1,$2,$3,$4,$5,$6,'cash','confirmed',$7,$7,$8::date,$8::date)`, [`py_${shortId(14)}`, br.org_id, id, mid, msId, Math.round(r.paid), actor.staffId, start]);
+            const opened = `${start}T06:00:00+05:30`;
+            await q.query(`insert into memberships (id, org_id, branch_id, member_id, plan_id, start_date, base_end_date, price, joining_fee, created_by, created_at) values ($1,$2,$3,$4,$5,$6,$7,$8,0,$9,$10::timestamptz)`, [msId, br.org_id, id, mid, plan.id, start, end, paid + due || plan.price, actor.staffId, opened]);
+            if (paid > 0)
+              await q.query(`insert into payments (id, org_id, branch_id, member_id, membership_id, amount, mode, state, received_by, confirmed_by, confirmed_at, created_at) values ($1,$2,$3,$4,$5,$6,'import','confirmed',null,$7,$8::timestamptz,$8::timestamptz)`, [`py_${shortId(14)}`, br.org_id, id, mid, msId, paid, actor.staffId, opened]);
+          } else if (due > 0) {
+            await q.query(`insert into payments (id, org_id, branch_id, member_id, membership_id, amount, mode, state, received_by, confirmed_by, confirmed_at) values ($1,$2,$3,$4,null,$5,'import','confirmed',null,$6,now())`, [`py_${shortId(14)}`, br.org_id, id, mid, -due, actor.staffId]);
           }
           n++;
         }

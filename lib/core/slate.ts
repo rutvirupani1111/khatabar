@@ -26,6 +26,11 @@ export interface Slate {
 
 export function churnRule(st: MemberState, today: string): string | null {
   if (st.status !== "active" && st.status !== "ending") return null;
+  // "paid up" means it: anyone who owes belongs on the dues line, not here
+  if (st.dues > 0) return null;
+  // a rhythm needs a baseline; a fresh import has no visit history yet
+  if (st.visitsPrev56 < 6) return null;
+  if (st.m.importId && diffDays(today, todayIST(Date.parse(st.m.createdAt))) < 14) return null;
   const since = st.lastVisit ? diffDays(today, st.lastVisit) : st.term ? diffDays(today, st.term.startDate) : 0;
   if (since >= 10) return `No visit for ${since} days`;
   if (st.visitsPrev56 >= 6) {
@@ -51,8 +56,9 @@ export function computeSlate(s: Snapshot, today = todayIST()): Slate {
   const oldest = owing.reduce<MemberState | null>((a, x) => (!a || (x.oldestDue ?? "9") < (a.oldestDue ?? "9") ? x : a), null);
 
   const dayOf = (iso: string | null) => (iso ? todayIST(Date.parse(iso)) : "");
-  const yPays = s.payments.filter((p) => p.state === "confirmed" && dayOf(p.confirmedAt) === yest);
-  const byMode = { cash: 0, upi_desk: 0, upi_member: 0, card: 0 } as Record<PayMode, number>;
+  // opening balances copied from the old sheet are not takings
+  const yPays = s.payments.filter((p) => p.state === "confirmed" && p.mode !== "import" && dayOf(p.confirmedAt) === yest);
+  const byMode = { cash: 0, upi_desk: 0, upi_member: 0, card: 0, import: 0 } as Record<PayMode, number>;
   const byStaffM = new Map<string, number>();
   for (const p of yPays) {
     byMode[p.mode] += p.amount;
@@ -95,7 +101,7 @@ export function computeSlate(s: Snapshot, today = todayIST()): Slate {
     }
   }
 
-  const todayPays = s.payments.filter((p) => p.state === "confirmed" && dayOf(p.confirmedAt) === today);
+  const todayPays = s.payments.filter((p) => p.state === "confirmed" && p.mode !== "import" && dayOf(p.confirmedAt) === today);
   return {
     today,
     endingToday,

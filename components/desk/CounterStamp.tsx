@@ -3,7 +3,7 @@
 // money, stamp it. Target: R, a plan number, Shift+P. Three keys, under 6 s.
 import { AnimatePresence, motion } from "motion/react";
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
-import { Barbell, Plate, PlateSide, SPRING, PLATE_SPRING, Stamp } from "@/components/art";
+import { Barbell, Plate, PLATE, PlateSide, SPRING, PLATE_SPRING, Stamp } from "@/components/art";
 import { IdCard } from "@/components/art/IdCard";
 import { Qr } from "@/components/art/Qr";
 import { fmtDay, fmtDayYear, planEnd } from "@/lib/core/dates";
@@ -29,6 +29,8 @@ export interface WellApi {
   key: (e: KeyboardEvent) => boolean;
   stage: Stage;
   openRenew: () => void;
+  /** Ctrl+Z after a payment: the stamp lifts off the card again */
+  lift: (memberId: string) => void;
 }
 
 /** Digits that roll like a scoreboard, 40 ms apart, fixed width. */
@@ -73,7 +75,9 @@ export const CounterStamp = forwardRef<WellApi, { st: MemberState; snap: Snapsho
   const [field, setField] = useState<null | "discount" | "amount" | "pin">(null);
   const [bend, setBend] = useState(0);
   const [err, setErr] = useState("");
-  const [stamp, setStamp] = useState<null | { word: string; kind: "paid" | "pending"; id: string; due: number }>(null);
+  const [stamp, setStamp] = useState<null | { word: string; kind: "paid" | "pending" | "due"; id: string; due: number }>(null);
+  // old dues ride on the renewal by default; O leaves them for another day
+  const [withDues, setWithDues] = useState(true);
   const [lastPay, setLastPay] = useState<string | null>(null);
   const barRef = useRef<HTMLDivElement>(null);
   const utrRef = useRef<HTMLInputElement>(null);
@@ -88,7 +92,9 @@ export const CounterStamp = forwardRef<WellApi, { st: MemberState; snap: Snapsho
   const end = plan ? planEnd(start, plan.months, plan.days) : null;
   const joining = !snap.memberships.some((x) => x.memberId === st.m.id && x.status !== "void") && plan ? plan.joiningFee : 0;
   const disc = toPaise(discount || 0);
-  const total = plan ? plan.price - disc + joining + (pt && ptPlan ? ptPlan.price : 0) : st.dues;
+  const oldDues = plan && withDues ? st.dues : 0;
+  const bill = plan ? plan.price - disc + joining + (pt && ptPlan ? ptPlan.price : 0) : 0;
+  const total = plan ? bill + oldDues : st.dues;
   const pay = amount ? Math.min(total, toPaise(amount)) : total;
   const overLimit = plan ? disc > (plan.price * snap.branch.settings.discountLimitPct) / 100 && store.state.actor.role === "desk" : false;
   const ruleText = rule === "after" ? `Starts ${fmtDay(start)} (day after expiry)` : rule === "lapse" ? `Starts ${fmtDay(start)} (from the lapse date)` : `Starts ${fmtDay(start)} (today)`;
@@ -105,6 +111,7 @@ export const CounterStamp = forwardRef<WellApi, { st: MemberState; snap: Snapsho
     setStamp(null);
     setErr("");
     setField(null);
+    setWithDues(true);
   }, [st.m.id]);
 
   const choose = (id: string | null) => {
@@ -129,14 +136,21 @@ export const CounterStamp = forwardRef<WellApi, { st: MemberState; snap: Snapsho
       : store.run("pay", { memberId: st.m.id, payments: pays });
     if (!r.ok) {
       setErr(r.error ?? "Not saved");
+      if (/PIN/.test(r.error ?? "")) {
+        setPin("");
+        setField("pin");
+      }
       return;
     }
+    setErr("");
     if (r.note) store.note(r.note, "ink");
     const confirmed = pays.filter((p) => p.state === "confirmed").reduce((a, p) => a + p.amount, 0);
-    const due = total - pays.reduce((a, p) => a + p.amount, 0);
+    // what is still owed once this lands, old dues included: the same figure the card's own dues line will show
+    const due = Math.max(0, st.dues + bill - pays.reduce((a, p) => a + p.amount, 0));
     const pid = pays[0]?.id ?? null;
+    const sid = pid ?? uid();
     setLastPay(pid);
-    setStamp({ word: confirmed > 0 ? "PAID" : "PENDING", kind: confirmed > 0 ? "paid" : "pending", id: pid ?? uid(), due });
+    setStamp(confirmed > 0 ? (due > 0 ? { word: "PART PAID", kind: "due", id: sid, due } : { word: "PAID", kind: "paid", id: sid, due: 0 }) : { word: "PENDING", kind: "pending", id: sid, due });
     setStage("stamped");
     setField(null);
     // Act 5: stamp at 0, chalk at 120, flip back at 260, land in the register at 640
@@ -160,6 +174,11 @@ export const CounterStamp = forwardRef<WellApi, { st: MemberState; snap: Snapsho
   const api: WellApi = {
     stage,
     openRenew: () => setStage("renew"),
+    lift: (memberId) => {
+      if (memberId !== st.m.id) return;
+      setStamp(null);
+      setStage("front");
+    },
     key: (e) => {
       const k = e.key;
       const inField = (e.target as HTMLElement).closest?.("input,textarea");
@@ -220,6 +239,10 @@ export const CounterStamp = forwardRef<WellApi, { st: MemberState; snap: Snapsho
         }
         if ((k === "t" || k === "T") && !inField) {
           if (ptPlan) setPt((v) => !v);
+          return true;
+        }
+        if ((k === "o" || k === "O") && !inField && st.dues > 0) {
+          setWithDues((v) => !v);
           return true;
         }
         if ((k === "d" || k === "D") && !inField) {
@@ -314,6 +337,16 @@ export const CounterStamp = forwardRef<WellApi, { st: MemberState; snap: Snapsho
     ch.close();
   }, [stage, plan, pay, st.dues, st.m.memberNo, st.m.name, snap.branch, snap.org.name, mode]);
 
+  // the card's own state stamp; 1-14 days over reads DUE like the register and rack, 15+ reads LAPSED
+  const cardStamp = st.frozenNow ? (
+    <Stamp kind="freeze" word="FROZEN" seed={st.frozenNow.id} size={0.75} drop={false} />
+  ) : st.status === "lapsed" ? (
+    <Stamp kind={st.plate === "p25" ? "lapsed" : "due"} word={PLATE[st.plate].en} sub={st.dues > 0 ? `बाकी ${rupees(st.dues)}` : undefined} seed={st.m.id + "l"} size={0.75} drop={false} />
+  ) : st.dues > 0 ? (
+    <Stamp kind="due" word="बाकी" sub={rupees(st.dues)} seed={st.m.id + "d"} size={0.7} drop={false} />
+  ) : st.pending > 0 ? (
+    <Stamp kind="pending" word="PENDING" seed={st.m.id + "p"} size={0.7} drop={false} />
+  ) : null;
   const flipped = stage !== "front";
   const daysPlates = Math.min(4, Math.max(0, Math.ceil((st.daysLeft ?? 0) / 14)));
   const qrText = upiLink({ vpa: snap.branch.vpa, payee: snap.branch.payeeName || snap.org.name, amount: plan ? pay : st.dues, note: `KB ${st.m.memberNo} ${plan?.nameEn ?? "dues"}` });
@@ -331,20 +364,18 @@ export const CounterStamp = forwardRef<WellApi, { st: MemberState; snap: Snapsho
               layout={false}
               lang={lang}
               stamp={
-                stamp && stage === "front" ? (
-                  <span className="flex flex-col items-end">
-                    <Stamp kind={stamp.kind} word={stamp.word} seed={stamp.id} size={0.8} drop={false} />
-                    {stamp.due > 0 && <Stamp kind="due" word="बाकी" sub={rupees(stamp.due)} seed={stamp.id + "d"} size={0.7} drop={false} />}
-                  </span>
-                ) : st.frozenNow ? (
-                  <Stamp kind="freeze" word="FROZEN" seed={st.frozenNow.id} size={0.75} drop={false} />
-                ) : st.status === "lapsed" ? (
-                  <Stamp kind="lapsed" word="LAPSED" seed={st.m.id + "l"} size={0.75} drop={false} />
-                ) : st.dues > 0 ? (
-                  <Stamp kind="due" word="बाकी" sub={rupees(st.dues)} seed={st.m.id + "d"} size={0.7} drop={false} />
-                ) : st.pending > 0 ? (
-                  <Stamp kind="pending" word="PENDING" seed={st.m.id + "p"} size={0.7} drop={false} />
-                ) : null
+                <AnimatePresence mode="popLayout">
+                  {stamp && stage === "front" ? (
+                    // one stamp, one dues figure: PART PAID carries the same balance the card prints
+                    <motion.span key={stamp.id} className="inline-block" exit={calm ? { opacity: 0 } : { opacity: 0, scale: 1.35, y: -26, rotate: -4 }} transition={{ duration: 0.22, ease: [0.2, 0, 0, 1] }}>
+                      <Stamp kind={stamp.kind} word={stamp.word} sub={stamp.kind === "due" ? `बाकी ${rupees(stamp.due)}` : undefined} seed={stamp.id} size={0.8} drop={false} />
+                    </motion.span>
+                  ) : (
+                    <motion.span key="state" className="inline-block" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                      {cardStamp}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
               }
             />
           </div>
@@ -389,10 +420,16 @@ export const CounterStamp = forwardRef<WellApi, { st: MemberState; snap: Snapsho
                     }
                   />
                   <motion.div key={planId ?? "none"} className="pointer-events-none absolute left-1/2 top-[2px] -translate-x-1/2" animate={{ scaleX: [1, 0.82, 1] }} transition={{ duration: 0.18 }}>
-                    <span className="t-stencil text-[20px]" style={{ color: "var(--brass-hi)" }}>
+                    <span className="t-stencil block text-center text-[20px]" style={{ color: "var(--brass-hi)" }}>
                       {plan ? rupees(total) : ""}
                     </span>
                   </motion.div>
+                  {st.dues > 0 && (
+                    // old dues written on the bar itself, so the desk never tells an owing member they are paid up
+                    <span className="t-teko pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2 whitespace-nowrap text-[13px]" style={{ color: withDues ? "#ff9b8a" : "var(--muted-on-floor)" }}>
+                      {withDues ? `incl. old dues ${rupees(st.dues)}` : `old dues ${rupees(st.dues)} left on the card`} · <span className="kbd !h-4 !min-w-4">O</span>
+                    </span>
+                  )}
                 </div>
                 <div className="mt-1 flex items-end justify-center gap-[6px]" role="radiogroup" aria-label="Plans: keys 1 to 6">
                   {plans.map((p, i) => (
@@ -400,13 +437,13 @@ export const CounterStamp = forwardRef<WellApi, { st: MemberState; snap: Snapsho
                   ))}
                 </div>
                 <div className="mt-auto flex items-end justify-between gap-2">
-                  <div className="min-w-0">
+                  <div className="min-w-0 shrink-0">
                     <div className="t-teko text-[13px] muted">New expiry</div>
                     <div className="text-[19px]" style={{ color: "var(--chalk)" }}>
                       {end ? <Scoreboard text={fmtDayYear(end)} /> : <span className="t-mono muted">-- --- ----</span>}
                     </div>
                   </div>
-                  <div className="text-right">
+                  <div className="min-w-0 text-right">
                     <div className="t-teko text-[12px] muted">
                       {joining ? `joining ${rupees(joining)} · ` : ""}
                       {disc ? `discount ${rupees(disc)} · ` : ""}
@@ -419,7 +456,8 @@ export const CounterStamp = forwardRef<WellApi, { st: MemberState; snap: Snapsho
                   </div>
                 </div>
                 {field && (
-                  <div className="absolute inset-x-3 bottom-12 flex items-center gap-2 bg-[var(--iron)] p-2" style={{ border: "1px solid var(--iron-hi)" }}>
+                  // sits over the plate pegs, never over the new expiry or the error row under it
+                  <div className="absolute inset-x-3 bottom-[82px] flex items-center gap-2 bg-[var(--iron)] p-2" style={{ border: "1px solid var(--iron-hi)" }}>
                     {field === "discount" && (
                       <>
                         <label className="t-teko text-[15px]" htmlFor="kb-disc">
@@ -459,7 +497,7 @@ export const CounterStamp = forwardRef<WellApi, { st: MemberState; snap: Snapsho
               </>
             )}
             {stage === "upi" && (
-              <div className="flex h-full gap-3">
+              <div className="flex min-h-0 flex-1 gap-3">
                 <Qr text={qrText} size={150} label={`UPI QR for ${rupees(plan ? pay : st.dues)}`} watermark={mode === "demo" ? "DEMO, do not pay" : undefined} />
                 <div className="flex min-w-0 flex-1 flex-col">
                   <div className="t-stencil text-[30px]" style={{ color: "var(--brass-hi)" }}>
@@ -487,7 +525,7 @@ export const CounterStamp = forwardRef<WellApi, { st: MemberState; snap: Snapsho
               </div>
             )}
             {stage === "split" && (
-              <div className="flex h-full flex-col gap-2">
+              <div className="flex min-h-0 flex-1 flex-col gap-2">
                 <div className="t-teko text-[18px]">Split {rupees(pay)}</div>
                 <label className="flex items-center gap-2">
                   <span className="t-teko w-14 text-[16px]">Cash ₹</span>
@@ -511,11 +549,10 @@ export const CounterStamp = forwardRef<WellApi, { st: MemberState; snap: Snapsho
                 {!calm && <ChalkPuff />}
               </div>
             )}
-            {err && (
-              <p role="alert" className="t-hand absolute inset-x-3 bottom-1 text-[15px]" style={{ color: "#ff8a7a" }}>
-                {err}
-              </p>
-            )}
+            {/* its own reserved row: an error never sits on top of the new expiry */}
+            <p role="alert" className="t-hand h-[18px] shrink-0 truncate text-[14px] leading-[18px]" style={{ color: "#ff8a7a" }}>
+              {err}
+            </p>
           </div>
         </motion.div>
       </motion.div>
@@ -556,14 +593,18 @@ function PlanPlate({ p, n, chosen, onPick, barRef, lang }: { p: Plan; n: number;
         if (r && y >= r.top - 10 && y <= r.bottom + 10) onPick();
       }}
       className="grip relative flex flex-col items-center"
-      style={{ opacity: chosen ? 0.35 : 1 }}
     >
       {!chosen ? (
         <motion.span layoutId={`planplate-${p.id}`} transition={PLATE_SPRING} className="inline-flex">
           <Plate state={p.plate} size={46} label={String(n)} />
         </motion.span>
       ) : (
-        <Plate state={p.plate} size={46} label={String(n)} />
+        // the plate went to the bar: its peg stays, ringed in brass, so it reads "on the bar", not "unavailable"
+        <span className="relative inline-grid size-[46px] place-items-center rounded-full" style={{ border: "2px dashed var(--brass-hi)", background: "radial-gradient(circle, var(--steel-lo) 0 5px, var(--iron-rim) 6px 8px, transparent 9px)" }}>
+          <span className="t-stencil absolute -top-1 right-0 text-[13px]" style={{ color: "var(--brass-hi)" }}>
+            {n}
+          </span>
+        </span>
       )}
       <span className="t-teko text-[12px] leading-none" style={{ color: "var(--chalk-dust)" }}>
         {(lang === "hi" ? p.nameHi : p.nameEn).slice(0, 9)}

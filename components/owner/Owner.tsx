@@ -23,7 +23,7 @@ export function Owner() {
   );
 }
 
-type LineKey = "today" | "week" | "dues" | "takings" | "drawer" | "churn" | "renewal" | "lapsed";
+type LineKey = "today" | "week" | "dues" | "takings" | "upi" | "drawer" | "churn" | "renewal" | "lapsed";
 
 function OwnerInner() {
   const { base, mode } = useGym();
@@ -84,9 +84,11 @@ const SlateBoard = forwardRef<HTMLDivElement, { slate: SlateT; d: Derived; snap:
     { k: "today", hi: "आज ख़त्म", en: "Ending today", big: String(slate.endingToday.length), small: names(slate.endingToday) || "nobody", ids: slate.endingToday },
     { k: "week", hi: "इस हफ़्ते", en: "Ending this week", big: String(slate.endingWeek.length), small: slate.endingWeekByPlan.map((p) => `${p.plan} ${p.n}`).join(" · ") || "none", ids: slate.endingWeek },
     { k: "dues", hi: "बाकी", en: "Dues", big: rupees(slate.dues.total), small: `${slate.dues.ids.length} members owe${slate.dues.oldest ? ` · oldest ${slate.dues.oldest.m.name.split(" ")[0]} since ${fmtDay(slate.dues.oldest.oldestDue)}` : ""}`, ids: slate.dues.ids },
-    { k: "takings", hi: "कल जमा", en: "Yesterday's takings", big: rupees(slate.yesterday.total), small: `cash ${rupees(slate.yesterday.byMode.cash)} · UPI ${rupees(slate.yesterday.byMode.upi_desk + slate.yesterday.byMode.upi_member)} · card ${rupees(slate.yesterday.byMode.card)}${slate.pendingUpi.total ? ` · ${rupees(slate.pendingUpi.total)} waiting to be matched` : ""}`, ids: slate.yesterday.ids },
+    { k: "takings", hi: "कल जमा", en: "Yesterday's takings", big: rupees(slate.yesterday.total), small: `cash ${rupees(slate.yesterday.byMode.cash)} · UPI ${rupees(slate.yesterday.byMode.upi_desk + slate.yesterday.byMode.upi_member)} · card ${rupees(slate.yesterday.byMode.card)}`, ids: slate.yesterday.ids },
+    // UPI not yet seen in the gym's account is today's job, not yesterday's money
+    ...(slate.pendingUpi.total ? [{ k: "upi" as const, hi: "UPI मिलान बाकी", en: "Waiting to match now", big: rupees(slate.pendingUpi.total), small: `${slate.pendingUpi.paymentIds.length} UPI ${slate.pendingUpi.paymentIds.length === 1 ? "payment" : "payments"} not yet seen in the gym's account`, ids: slate.pendingUpi.ids }] : []),
     { k: "drawer", hi: "गल्ला", en: "Drawer", big: slate.drawer.state === "matched" ? "matched" : slate.drawer.state === "short" ? `short ${rupees(Math.abs(slate.drawer.shortfall))}` : slate.drawer.state === "open" ? "not closed" : "no close yet", small: slate.drawer.state === "short" ? `${slate.drawer.staff}: "${slate.drawer.reason}"` : slate.drawer.state === "matched" ? `closed by ${slate.drawer.staff}` : slate.drawer.state === "open" ? "cash taken but no count signed" : "", ids: [], warn: slate.drawer.state === "open" },
-    { k: "churn", hi: "दूर हो रहे", en: "Drifting away", big: String(slate.churn.length), small: "paid up, but broke their own rhythm", ids: slate.churn.map((c) => c.st.m.id) },
+    { k: "churn", hi: "दूर हो रहे", en: "Drifting away", big: String(slate.churn.length), small: "paid up and regular, but broke their own rhythm", ids: slate.churn.map((c) => c.st.m.id) },
     { k: "renewal", hi: "रिन्यू", en: "Renewed last month", big: `${slate.renewal.renewed} / ${slate.renewal.ended}`, small: "renewed within 7 days of their term ending", ids: slate.renewal.ids },
     { k: "lapsed", hi: "ख़त्म, रिन्यू नहीं", en: "Lapsed, not renewed", big: String(slate.lapsed.ids.length), small: "pick a reason for each", ids: slate.lapsed.ids },
   ];
@@ -177,6 +179,13 @@ function LineList({ k, ids, d, snap, slate }: { k: LineKey; ids: string[]; d: De
   const churnWhy = new Map(slate.churn.map((c) => [c.st.m.id, c.why]));
   return (
     <div className="ledger mb-3 pb-1 text-[var(--text-on-paper)]">
+      {k === "upi" && list.length > 0 && (
+        <div className="flex h-8 items-center pl-[72px]">
+          <Link href={`${base}/desk?upi=1`} className="btn-ink !min-h-7">
+            Match them at the desk
+          </Link>
+        </div>
+      )}
       {k === "today" && list.length > 0 && (
         <div className="flex h-8 items-center pl-[72px]">
           <Link href={`${base}/rack?load=today`} className="btn-ink !min-h-7">
@@ -192,7 +201,7 @@ function LineList({ k, ids, d, snap, slate }: { k: LineKey; ids: string[]; d: De
               {x.m.memberNo} {x.m.name}
               {k === "churn" && <span className="t-hand ml-2 text-[13px]" style={{ color: "var(--margin-red)" }}>{churnWhy.get(x.m.id)}</span>}
             </span>
-            <span className="t-mono text-[12px]">{k === "dues" ? rupees(x.dues) : fmtDay(x.endDate)}</span>
+            <span className="t-mono text-[12px]">{k === "dues" ? rupees(x.dues) : k === "upi" ? rupees(x.pending) : fmtDay(x.endDate)}</span>
           </button>
           {peek === x.m.id && (
             <div className="flex flex-wrap items-center gap-2 py-1 pl-[72px] pr-3">

@@ -9,6 +9,10 @@ export interface MemberState {
   m: Member;
   term: Membership | null; // covers today, else the last one that ended, else the next one
   plan: Plan | null;
+  /** the plan of the term the paid-up chain ends on (after a renewal, the new plan) */
+  endPlan: Plan | null;
+  /** the day they joined: their first term's start (an imported member joined long before the import), else the day they were added */
+  joinedOn: string;
   termEnd: string | null; // this term's end, freezes included
   endDate: string | null; // end of the paid-up chain (a renewal extends it)
   daysLeft: number | null; // endDate - today; negative means overdue days
@@ -106,6 +110,7 @@ export function derive(s: Snapshot, today = todayIST()): Derived {
       term = past[past.length - 1] ?? terms.find((t) => t.startDate > today) ?? null;
     }
     let endDate: string | null = null;
+    let endTerm: Membership | null = term;
     if (term) {
       endDate = ends.get(term.id)!;
       let grew = true;
@@ -115,6 +120,7 @@ export function derive(s: Snapshot, today = todayIST()): Derived {
           const e = ends.get(t.id)!;
           if (t.startDate <= addDays(endDate, 1) && e > endDate) {
             endDate = e;
+            endTerm = t;
             grew = true;
           }
         }
@@ -167,6 +173,8 @@ export function derive(s: Snapshot, today = todayIST()): Derived {
       m,
       term,
       plan: term ? plans.get(term.planId) ?? null : null,
+      endPlan: endTerm ? plans.get(endTerm.planId) ?? null : null,
+      joinedOn: [terms[0]?.startDate, m.createdAt ? todayIST(Date.parse(m.createdAt)) : ""].filter(Boolean).sort()[0] ?? today,
       termEnd: tEnd,
       endDate,
       daysLeft,
@@ -190,6 +198,14 @@ export function derive(s: Snapshot, today = todayIST()): Derived {
   const out: Derived = { today, list, byId: new Map(list.map((x) => [x.m.id, x])), byNo: new Map(list.map((x) => [x.m.memberNo.toUpperCase(), x])) };
   per.set(today, out);
   return out;
+}
+
+/** "Monthly", or "Monthly then Yearly" once a renewal has queued a different plan after this term. */
+export function planLabel(st: MemberState, lang: "en" | "hi" = "en") {
+  const nm = (p: Plan | null) => (p ? (lang === "hi" ? p.nameHi || p.nameEn : p.nameEn) : "");
+  if (!st.plan) return "";
+  if (st.endPlan && st.endPlan.id !== st.plan.id) return `${nm(st.plan)} ${lang === "hi" ? "फिर" : "then"} ${nm(st.endPlan)}`;
+  return nm(st.plan);
 }
 
 /** Register order: what needs the desk first. */

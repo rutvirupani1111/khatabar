@@ -8,7 +8,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Magnet, PLATE, seededAngle, SPRING, Stamp } from "@/components/art";
 import { MarginNotes, TopBar } from "@/components/shell/TopBar";
 import { useDerived, useGym, useSnap } from "@/components/shell/Gym";
-import { addDays, diffDays, fmtDay, weekday } from "@/lib/core/dates";
+import { addDays, diffDays, fmtDay, fmtSpan, weekday } from "@/lib/core/dates";
 import { initials, uid } from "@/lib/core/money";
 import { freezeRules, type MemberState } from "@/lib/core/state";
 import type { Freeze } from "@/lib/core/types";
@@ -24,8 +24,10 @@ export function Board() {
   const router = useRouter();
   const sp = useSearchParams();
   const gridRef = useRef<HTMLDivElement>(null);
+  const cellRefs = useRef<(HTMLDivElement | null)[]>([]);
   const [colW, setColW] = useState(120);
-  const [rowH, setRowH] = useState(210);
+  // where each day's cell sits inside the board, so marker lines land on the right day whatever the row heights
+  const [cellPos, setCellPos] = useState<{ x: number; y: number }[]>([]);
   const [focusId, setFocusId] = useState<string | null>(sp.get("m"));
   const [kbDays, setKbDays] = useState<number | null>(null);
   const [ask, setAsk] = useState<null | { id: string; days: number }>(null);
@@ -39,13 +41,19 @@ export function Board() {
       if (gridRef.current) {
         const r = gridRef.current.getBoundingClientRect();
         setColW(r.width / 7);
-        setRowH(r.height / 2);
+        setCellPos(cellRefs.current.map((el) => (el ? { x: el.offsetLeft, y: el.offsetTop } : { x: 0, y: 0 })));
       }
     };
     m();
     window.addEventListener("resize", m);
-    return () => window.removeEventListener("resize", m);
-  }, [snap]);
+    // rows grow with their magnets, so re-measure whenever the board itself changes size
+    const ro = typeof ResizeObserver !== "undefined" && gridRef.current ? new ResizeObserver(m) : null;
+    if (ro && gridRef.current) ro.observe(gridRef.current);
+    return () => {
+      window.removeEventListener("resize", m);
+      ro?.disconnect();
+    };
+  }, [snap, narrow]);
 
   const days = useMemo(() => Array.from({ length: 14 }, (_, i) => addDays(today, i)), [today]);
   const onBoard = useMemo(() => {
@@ -146,21 +154,21 @@ export function Board() {
         </span>
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find on the board" className="field-floor ml-auto !w-48 t-mono text-[13px]" aria-label="Find a member on the board" />
       </div>
-      <div className="grid flex-1 gap-4 px-3 pb-6 sm:px-5 lg:grid-cols-[220px_1fr]">
+      <div className="grid flex-1 gap-4 px-3 pb-6 sm:px-5 lg:grid-cols-[264px_1fr] lg:items-start">
         <aside className="board p-3" aria-label="Lapsed this week and freeze requests">
           <h2 className="t-teko text-[18px]" style={{ color: "var(--margin-red)" }}>
-            Lapsed this week
+            Ended this week
           </h2>
           <div className="mt-2 flex flex-wrap gap-2">
             {lapsedTray.map((x) => (
               <button key={x.m.id} type="button" className="flex flex-col items-center" onDoubleClick={() => router.push(`${base}/desk?m=${x.m.id}`)} onClick={() => setFocusId(x.m.id)} title={`${x.m.name}, ended ${fmtDay(x.endDate)}`}>
-                <Magnet state={x.plate} text={initials(x.m.name)} size={34} />
+                <Magnet state={x.plate} text={initials(x.m.name)} size={38} />
                 <span className="t-hand text-[13px]" style={{ color: "var(--ink)" }}>
                   {x.m.name.split(" ")[0]}
                 </span>
               </button>
             ))}
-            {!lapsedTray.length && <p className="t-hand text-[14px]" style={{ color: "var(--muted-on-paper)" }}>Nobody lapsed this week.</p>}
+            {!lapsedTray.length && <p className="t-hand text-[14px]" style={{ color: "var(--muted-on-paper)" }}>Nobody ended this week.</p>}
           </div>
           <h2 className="t-teko mt-4 text-[18px]" style={{ color: "var(--stamp-freeze)" }}>
             Freeze requests
@@ -169,22 +177,28 @@ export function Board() {
             const st = d.byId.get(f.memberId);
             if (!st) return null;
             return (
-              <div key={f.id} className="mt-2 flex items-center gap-2">
-                <Magnet state={st.plate} text={initials(st.m.name)} size={34} pin />
+              <div key={f.id} className="mt-2 flex items-start gap-2 border-b border-dashed border-[var(--ledger-rule)] pb-2">
+                <Magnet state={st.plate} text={initials(st.m.name)} size={38} pin />
+                {/* what is being approved, in full: who, how many days, which dates, why */}
                 <div className="min-w-0 flex-1">
-                  <div className="t-hand truncate text-[14px]" style={{ color: "var(--ink)" }}>
-                    {st.m.name.split(" ")[0]}: {f.days} days from {fmtDay(f.fromDate)}
+                  <div className="t-hand text-[15px] leading-tight" style={{ color: "var(--ink)" }}>
+                    {st.m.name}
                   </div>
-                  <div className="t-hand text-[13px]" style={{ color: "var(--muted-on-paper)" }}>
+                  <div className="t-hand text-[14px] leading-tight" style={{ color: "var(--stamp-freeze)" }}>
+                    {f.days} days · {fmtSpan(f.fromDate, f.toDate)}
+                  </div>
+                  <div className="t-hand text-[13px] leading-tight" style={{ color: "var(--muted-on-paper)" }}>
                     {f.reason}
                   </div>
                 </div>
-                <button type="button" className="btn-ink !min-h-8" onClick={() => store.run("freeze.decide", { id: f.id, state: "approved" })}>
-                  OK
-                </button>
-                <button type="button" className="btn-ink !min-h-8" style={{ color: "var(--margin-red)", borderColor: "var(--margin-red)" }} onClick={() => store.run("freeze.decide", { id: f.id, state: "rejected" })}>
-                  No
-                </button>
+                <div className="flex shrink-0 flex-col gap-1">
+                  <button type="button" className="btn-ink !min-h-9" onClick={() => store.run("freeze.decide", { id: f.id, state: "approved" })}>
+                    OK
+                  </button>
+                  <button type="button" className="btn-ink !min-h-9" style={{ color: "var(--margin-red)", borderColor: "var(--margin-red)" }} onClick={() => store.run("freeze.decide", { id: f.id, state: "rejected" })}>
+                    No
+                  </button>
+                </div>
               </div>
             );
           })}
@@ -211,16 +225,23 @@ export function Board() {
               })}
             </div>
           ) : (
-            <div ref={gridRef} className="relative grid min-h-[420px] flex-1 grid-cols-7 grid-rows-2">
+            <div ref={gridRef} className="relative grid grid-cols-7 content-start">
               {days.map((day, i) => {
                 const here = onBoard.filter((x) => x.endDate === day);
                 return (
-                  <div key={day} className="relative min-h-[210px] overflow-hidden border-r border-[rgba(29,58,107,.12)] p-2" style={{ borderTop: i >= 7 ? "1px dashed rgba(29,58,107,.2)" : undefined }}>
+                  <div
+                    key={day}
+                    ref={(el) => {
+                      cellRefs.current[i] = el;
+                    }}
+                    className="relative min-h-[150px] overflow-hidden border-r border-[rgba(29,58,107,.12)] p-2 pb-4"
+                    style={{ borderTop: i >= 7 ? "1px dashed rgba(29,58,107,.2)" : undefined }}
+                  >
                     <div className="t-hand text-[16px]" style={{ color: day === today ? "var(--margin-red)" : "var(--ink)" }}>
                       {(lang === "hi" ? WD_HI : WD)[weekday(day)]} {Number(day.slice(-2))}
                       {day === today ? " · today" : ""}
                     </div>
-                    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-4">
+                    <div className="mt-3 flex flex-wrap gap-x-3 gap-y-5">
                       {here.map((x) => (
                         <MagnetPin key={x.m.id} st={x} colW={colW} focused={focusId === x.m.id} onFocus={() => setFocusId(x.m.id)} onDrop={(n) => n > 0 && setAsk({ id: x.m.id, days: n })} onOpen={() => router.push(`${base}/desk?m=${x.m.id}`)} snap={snap} kbDays={focusId === x.m.id ? kbDays : null} />
                       ))}
@@ -244,7 +265,10 @@ export function Board() {
                   const endI = diffDays(st.endDate, today);
                   const fromI = endI - f.days;
                   if (endI < 0 || endI > 13) return null;
-                  const pos = (k: number) => ({ x: (Math.max(0, Math.min(13, k)) % 7) * colW + 26, y: (Math.max(0, Math.min(13, k)) >= 7 ? rowH : 0) + 64 });
+                  const pos = (k: number) => {
+                    const c = cellPos[Math.max(0, Math.min(13, k))] ?? { x: 0, y: 0 };
+                    return { x: c.x + 30, y: c.y + 70 };
+                  };
                   const a = pos(fromI);
                   const b = pos(endI);
                   return (
@@ -399,7 +423,7 @@ function MagnetPin({ st, colW, focused, onFocus, onDrop, onOpen, snap, kbDays }:
         className="grip relative flex flex-col items-center"
         aria-label={`${st.m.name}, ends ${fmtDay(st.endDate)}. Press F to freeze, R to renew.`}
       >
-        <Magnet state={st.plate} text={initials(st.m.name)} size={30} pin={!!st.freezeRequest} />
+        <Magnet state={st.plate} text={initials(st.m.name)} size={40} pin={!!st.freezeRequest} />
         {shown > 0 && (
           <span className="t-stencil absolute -top-5 left-1/2 -translate-x-1/2 whitespace-nowrap text-[18px]" style={{ color: "var(--stamp-freeze)" }}>
             +{shown} days
@@ -407,7 +431,7 @@ function MagnetPin({ st, colW, focused, onFocus, onDrop, onOpen, snap, kbDays }:
         )}
       </motion.button>
       {shown > 0 && (
-        <svg className="pointer-events-none absolute left-[15px] top-[15px] overflow-visible" width="1" height="1" aria-hidden>
+        <svg className="pointer-events-none absolute left-[20px] top-[20px] overflow-visible" width="1" height="1" aria-hidden>
           <path d={`M0 0 L${shown * colW} 0`} stroke="var(--stamp-freeze)" strokeWidth="3" strokeLinecap="round" strokeDasharray="1 0" />
           <text x={(shown * colW) / 2} y="22" textAnchor="middle" fontSize="13" className="t-hand" fill="var(--ink)" opacity=".6">
             ends {fmtDay(addDays(st.endDate!, shown))}
@@ -415,7 +439,7 @@ function MagnetPin({ st, colW, focused, onFocus, onDrop, onOpen, snap, kbDays }:
         </svg>
       )}
       {stop && (
-        <span className="t-hand absolute left-0 top-12 z-10 whitespace-nowrap px-1 text-[13px]" style={{ background: "var(--hazard)", color: "var(--iron-rim)" }}>
+        <span className="t-hand absolute left-0 top-14 z-10 whitespace-nowrap px-1 text-[13px]" style={{ background: "var(--hazard)", color: "var(--iron-rim)" }}>
           {stop}
         </span>
       )}

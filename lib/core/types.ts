@@ -117,7 +117,8 @@ export interface Membership {
   createdAt: string;
 }
 
-export type PayMode = "cash" | "upi_desk" | "upi_member" | "card";
+// "import" is an opening balance copied from the gym's old sheet: never cash in today's drawer.
+export type PayMode = "cash" | "upi_desk" | "upi_member" | "card" | "import";
 export type PayState = "pending" | "confirmed" | "rejected";
 
 export interface Payment {
@@ -272,6 +273,7 @@ export type TableName =
   | "staff"
   | "templates"
   | "tasks"
+  | "imports"
   | "branch";
 
 export interface Mutation {

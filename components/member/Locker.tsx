@@ -8,7 +8,7 @@ import { EASE_DOOR } from "@/components/art";
 import { ssGet, ssSet } from "@/lib/client/idb";
 import { todayIST } from "@/lib/core/dates";
 
-export function Locker({ memberNo, calm }: { memberNo: string; calm: boolean }) {
+export function Locker({ memberNo, calm, label = "Open my locker", aria }: { memberNo: string; calm: boolean; label?: string; aria?: string }) {
   const key = `kb_locker_${memberNo}_${todayIST()}`;
   const [phase, setPhase] = useState<"closed" | "key" | "swing" | "open" | "unknown">("unknown");
   const fired = useRef(false);
@@ -60,7 +60,7 @@ export function Locker({ memberNo, calm }: { memberNo: string; calm: boolean }) 
   return (
     <AnimatePresence>
       {phase !== "open" && (
-        <motion.div key="locker" className="fixed inset-0 z-[80]" style={{ perspective: 1600 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} role="dialog" aria-modal="true" aria-label={`Locker ${memberNo}. Tap to open.`}>
+        <motion.div key="locker" className="fixed inset-0 z-[80]" style={{ perspective: 1600 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} role="dialog" aria-modal="true" aria-label={aria ?? `Locker ${memberNo}. Tap to open.`}>
           <motion.div
             className="absolute inset-0 origin-left"
             style={{ transformStyle: "preserve-3d", backfaceVisibility: "hidden", background: "linear-gradient(100deg, #8e9496 0%, #a8aeb0 30%, #8c9294 70%, #7c8284 100%)", boxShadow: "inset -10px 0 30px rgba(0,0,0,.25)" }}
@@ -102,8 +102,9 @@ export function Locker({ memberNo, calm }: { memberNo: string; calm: boolean }) 
               ))}
             </div>
           )}
-          <button ref={btn} type="button" onClick={open} className="btn-brass absolute bottom-[max(24px,env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2" style={{ opacity: phase === "closed" ? 1 : 0 }}>
-            Open my locker
+          {/* absolute now wins over the brass button's own position (components layer), so it sits 24 px off the bottom */}
+          <button ref={btn} type="button" onClick={open} className="btn-brass absolute bottom-[max(24px,env(safe-area-inset-bottom))] left-1/2 !min-h-12 -translate-x-1/2 whitespace-nowrap" style={{ opacity: phase === "closed" ? 1 : 0 }}>
+            {label}
           </button>
         </motion.div>
       )}

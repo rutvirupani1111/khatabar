@@ -37,7 +37,7 @@ function arc(cx: number, cy: number, r0: number, r1: number, frac: number) {
 
 /** A bumper plate seen face on. The coloured rubber covers a share of the ring
  *  (full, three-quarter, half, quarter, none) so the state never relies on colour alone. */
-export function Plate({ state, size = 40, label, frozen, ring, rim, className, title }: { state: PlateKey; size?: number; label?: string; frozen?: boolean; ring?: number; rim?: string; className?: string; title?: string }) {
+export function Plate({ state, size = 40, label, frozen, halfFrozen, ring, rim, className, title }: { state: PlateKey; size?: number; label?: string; frozen?: boolean; halfFrozen?: boolean; ring?: number; rim?: string; className?: string; title?: string }) {
   const c = PLATE[state];
   const uid = useId().replace(/:/g, "");
   const big = size >= 90;
@@ -55,13 +55,14 @@ export function Plate({ state, size = 40, label, frozen, ring, rim, className, t
           </pattern>
         </g>
       )}
-      {frozen && (
+      {(frozen || halfFrozen) && (
         <>
           <pattern id={`fz-${uid}`} width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(-35)">
             <rect width="5" height="5" fill="var(--stamp-freeze)" opacity=".55" />
             <rect width="1.5" height="5" fill="#dfe9f1" opacity=".8" />
           </pattern>
-          <circle cx="50" cy="50" r="47" fill={`url(#fz-${uid})`} />
+          {/* a freeze the member asked for and the desk has not approved yet: half the ring frosts */}
+          {frozen ? <circle cx="50" cy="50" r="47" fill={`url(#fz-${uid})`} /> : <path d="M50 3 A47 47 0 0 1 50 97 Z" fill={`url(#fz-${uid})`} />}
         </>
       )}
       {ring != null && (
@@ -70,7 +71,8 @@ export function Plate({ state, size = 40, label, frozen, ring, rim, className, t
       {big && rim && (
         <>
           <path id={`rim-${uid}`} d="M50,50 m-38,0 a38,38 0 1,1 76,0 a38,38 0 1,1 -76,0" fill="none" />
-          <text fontSize="7.5" letterSpacing="1.4" fill="var(--chalk)" opacity=".75" className="t-mono">
+          {/* knocked out with a dark stroke so the words read over the coloured rubber and the brass arc */}
+          <text fontSize="10" letterSpacing="1" fill="var(--chalk)" stroke="var(--iron-rim)" strokeWidth="2.4" paintOrder="stroke" strokeLinejoin="round" className="t-teko" aria-hidden>
             <textPath href={`#rim-${uid}`} startOffset="0">
               {rim}
             </textPath>
@@ -90,7 +92,7 @@ export function Plate({ state, size = 40, label, frozen, ring, rim, className, t
 }
 
 /** Side view of a plate on a sleeve. */
-export function PlateSide({ state, h = 60, w = 12, frozen }: { state: PlateKey | "brass"; h?: number; w?: number; frozen?: boolean }) {
+export function PlateSide({ state, h = 60, w = 12, frozen, halfFrozen }: { state: PlateKey | "brass"; h?: number; w?: number; frozen?: boolean; halfFrozen?: boolean }) {
   const fill = state === "brass" ? "var(--brass)" : PLATE[state].fill;
   return (
     <span
@@ -104,7 +106,7 @@ export function PlateSide({ state, h = 60, w = 12, frozen }: { state: PlateKey |
         border: "1px solid var(--iron-rim)",
       }}
     >
-      {frozen && <span className="absolute inset-0" style={{ background: "repeating-linear-gradient(-35deg, rgba(60,110,145,.75) 0 3px, rgba(223,233,241,.7) 3px 4.5px)" }} />}
+      {(frozen || halfFrozen) && <span className={`absolute inset-x-0 top-0 ${frozen ? "bottom-0" : "h-1/2"}`} style={{ background: "repeating-linear-gradient(-35deg, rgba(60,110,145,.75) 0 3px, rgba(223,233,241,.7) 3px 4.5px)" }} />}
     </span>
   );
 }

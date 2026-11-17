@@ -49,7 +49,8 @@ export default function Home() {
                 <li>The drawer is counted before the shutter comes down.</li>
               </ul>
             </div>
-            <div>
+            {/* one empty ruled line above the heading when the columns stack on a phone */}
+            <div className="max-sm:mt-8">
               <h3 className="t-teko text-[20px] leading-8" style={{ color: "var(--carbon)" }}>
                 Your own gym
               </h3>

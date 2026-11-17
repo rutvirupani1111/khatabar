@@ -84,7 +84,7 @@ export function Register({ list, q, focus, selected, onPick, onFocus, unsynced, 
               outlineOffset: -2,
             }}
           >
-            <span className={`flex items-center justify-end gap-1 ${dense ? "pr-[10px]" : "pr-2"}`}>
+            <span className={`flex items-center justify-end gap-1 ${dense ? "pr-[6px]" : "pr-2"}`}>
               <Plate state={st.plate} size={dense ? 28 : 22} frozen={!!st.frozenNow} title={`${c.en}`} label="" />
             </span>
             <span className="t-mono text-[12px]" style={{ color: "var(--muted-on-paper)" }}>
@@ -139,14 +139,42 @@ export function TodayPage({ snap, unsynced, fresh, from }: { snap: Snapshot; uns
   const members = new Map(snap.members.map((m) => [m.id, m]));
   const plans = new Map(snap.plans.map((p) => [p.id, p]));
   const ms = new Map(snap.memberships.map((m) => [m.id, m]));
-  const lines = snap.payments
-    .filter((p) => todayIST(Date.parse(p.createdAt)) === today)
-    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
-    .slice(0, 6);
-  if (!lines.length) return <div className="t-hand flex h-8 items-center pl-[72px] text-[15px]" style={{ color: "var(--muted-on-paper)" }}>Nothing written on today&apos;s page yet.</div>;
+  // every counter line of the day; opening balances copied from an old sheet are not written here
+  const lines = snap.payments.filter((p) => p.mode !== "import" && todayIST(Date.parse(p.createdAt)) === today).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  const sum = (f: (p: Payment) => boolean) => lines.filter((p) => p.state === "confirmed" && f(p)).reduce((a, p) => a + p.amount, 0);
+  const cash = sum((p) => p.mode === "cash");
+  const upi = sum((p) => p.mode === "upi_desk" || p.mode === "upi_member");
+  const card = sum((p) => p.mode === "card");
+  const waiting = lines.filter((p) => p.state === "pending").length;
+  const head = (
+    <div className="t-teko flex h-8 items-center gap-3 pl-[72px] pr-3 text-[16px]" style={{ color: "var(--margin-red)" }}>
+      <span>
+        <span lang="hi">आज</span>&nbsp;· Today&apos;s page
+      </span>
+      {lines.length > 0 && (
+        <span className="t-mono ml-auto truncate text-[12px] normal-case tracking-normal" style={{ color: "var(--carbon)" }}>
+          {lines.length} {lines.length === 1 ? "line" : "lines"} · cash {rupees(cash)} · UPI {rupees(upi)}
+          {card ? ` · card ${rupees(card)}` : ""}
+          {waiting ? ` · ${waiting} waiting` : ""}
+        </span>
+      )}
+    </div>
+  );
+  if (!lines.length)
+    return (
+      <>
+        {head}
+        <div className="t-hand flex h-8 items-center pl-[72px] text-[15px]" style={{ color: "var(--muted-on-paper)" }}>
+          Nothing written on today&apos;s page yet.
+        </div>
+      </>
+    );
   const mode = (p: Payment) => (p.mode === "cash" ? "cash" : p.mode === "card" ? "card" : "UPI");
   return (
     <div>
+      {head}
+      {/* six lines tall; the rest of the day scrolls inside the page, nothing drops off */}
+      <div className="scroll-thin max-h-[192px] overflow-y-auto" style={{ backgroundColor: "var(--ledger)", backgroundImage: "repeating-linear-gradient(to bottom, transparent 0 31px, var(--ledger-rule) 31px 32px)", backgroundAttachment: "local" }}>
       <AnimatePresence initial={false}>
         {lines.map((p) => {
           const m = members.get(p.memberId);
@@ -173,6 +201,7 @@ export function TodayPage({ snap, unsynced, fresh, from }: { snap: Snapshot; uns
           );
         })}
       </AnimatePresence>
+      </div>
     </div>
   );
 }

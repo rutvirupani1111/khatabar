@@ -8,6 +8,36 @@ import { EASE_DOOR } from "./index";
 
 const SLATS = 12;
 
+// The bottom rail's path while the curtain rolls up. Each slat lifts on EASE_DOOR, 40 ms after the one
+// below it; the lowest edge still covering the gap is the rail, so the padlock and the button ride it
+// instead of floating up over slats that have not moved yet.
+function bez(x: number) {
+  const [x1, y1, x2, y2] = EASE_DOOR;
+  const cx = (t: number) => 3 * x1 * t * (1 - t) ** 2 + 3 * x2 * t * t * (1 - t) + t ** 3;
+  let lo = 0;
+  let hi = 1;
+  for (let k = 0; k < 24; k++) {
+    const mid = (lo + hi) / 2;
+    if (cx(mid) < x) lo = mid;
+    else hi = mid;
+  }
+  const t = (lo + hi) / 2;
+  return 3 * y1 * t * (1 - t) ** 2 + 3 * y2 * t * t * (1 - t) + t ** 3;
+}
+const LIFT_TOTAL = 0.12 + 0.04 * (SLATS - 1) + 0.52;
+const RAIL_T: number[] = [];
+const RAIL_Y: string[] = [];
+for (let k = 0; k <= 30; k++) {
+  const t = (k / 30) * LIFT_TOTAL;
+  let edge = 0;
+  for (let i = 0; i < SLATS; i++) {
+    const p = Math.max(0, Math.min(1, (t - (0.12 + 0.04 * i)) / 0.52));
+    edge = Math.max(edge, 100 - (i * 100) / SLATS - ((SLATS - i) * 100) / SLATS * bez(p) - 2 * bez(p));
+  }
+  RAIL_T.push(k / 30);
+  RAIL_Y.push(`${(edge - 100).toFixed(2)}vh`);
+}
+
 function shiftLine() {
   const { h, min } = istParts();
   const t = `${h % 12 || 12}:${String(min).padStart(2, "0")}`;
@@ -132,6 +162,8 @@ export interface ShutterProps {
   branch: string;
   pin?: (pin: string) => Promise<boolean | string>; // real desks: only a correct PIN raises it
   hint?: ReactNode;
+  /** what a phone shows instead: no keyboard words on a touch screen */
+  touchHint?: ReactNode;
   calm: boolean;
   onAct?: (act: "lock" | "lift" | "dust" | "slate" | "settle") => void;
   onOpen: (via: "key" | "click" | "wheel" | "touch" | "pin") => void;
@@ -139,7 +171,7 @@ export interface ShutterProps {
 }
 
 /** Shutter Up. Demo: click, Space/Enter/ArrowUp, wheel or a swipe raise it. Real desk: the staff PIN. */
-export function ShutterUp({ gym, branch, pin, hint, calm, onAct, onOpen, ctaLabel = "Raise shutter" }: ShutterProps) {
+export function ShutterUp({ gym, branch, pin, hint, touchHint, calm, onAct, onOpen, ctaLabel = "Raise shutter" }: ShutterProps) {
   const [phase, setPhase] = useState<"closed" | "lifting" | "done">("closed");
   const [digits, setDigits] = useState("");
   const [err, setErr] = useState("");
@@ -176,17 +208,23 @@ export function ShutterUp({ gym, branch, pin, hint, calm, onAct, onOpen, ctaLabe
     });
   }, [calm, onAct, onOpen]);
 
+  // the page stays still until the shutter is fully up, so the swipe that raised it does not also scroll the page
+  const up = phase === "done";
   useEffect(() => {
-    if (phase !== "closed") return;
+    if (up) return;
     const root = document.documentElement;
     const prev = root.style.overflow;
     root.style.overflow = "hidden";
+    return () => {
+      root.style.overflow = prev;
+    };
+  }, [up]);
+
+  useEffect(() => {
+    if (phase !== "closed") return;
     if (pin) pinRef.current?.focus({ preventScroll: true });
     else btn.current?.focus({ preventScroll: true });
-    if (pin)
-      return () => {
-        root.style.overflow = prev;
-      };
+    if (pin) return;
     let touchY = 0;
     const onWheel = (e: WheelEvent) => e.deltaY > 4 && raise("wheel");
     const onKey = (e: KeyboardEvent) => {
@@ -202,7 +240,6 @@ export function ShutterUp({ gym, branch, pin, hint, calm, onAct, onOpen, ctaLabe
     window.addEventListener("touchstart", ts, { passive: true });
     window.addEventListener("touchmove", tm, { passive: true });
     return () => {
-      root.style.overflow = prev;
       window.removeEventListener("wheel", onWheel);
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("touchstart", ts);
@@ -227,14 +264,19 @@ export function ShutterUp({ gym, branch, pin, hint, calm, onAct, onOpen, ctaLabe
   return (
     <AnimatePresence>
       {phase !== "done" && (
-        <motion.div key="shutter" role="dialog" aria-modal="true" aria-label={`${gym} shutter. ${pin ? "Enter your 4 digit staff PIN" : ctaLabel}`} className="fixed inset-0 z-[80] overflow-hidden" exit={{ opacity: 0 }} transition={{ duration: calm ? 0.25 : 0.2 }} style={{ perspective: 1800 }}>
+        <motion.div key="shutter" data-shutter role="dialog" aria-modal="true" aria-label={`${gym} shutter. ${pin ? "Enter your 4 digit staff PIN" : ctaLabel}`} className="fixed inset-0 z-[80] overflow-hidden" exit={{ opacity: 0 }} transition={{ duration: calm ? 0.25 : 0.2 }} style={{ perspective: 1800 }}>
           {/* warm tube-light from inside the gym spills out of the widening gap */}
           {lifting && !calm && (
             <motion.div className="pointer-events-none absolute inset-0" style={{ zIndex: 0, background: "linear-gradient(to top, rgba(210,174,110,.34), rgba(210,174,110,.08) 45%, transparent 75%)" }} initial={{ opacity: 0 }} animate={{ opacity: [0, 1, 0] }} transition={{ delay: 0.12, duration: 1.1, times: [0, 0.45, 1] }} />
           )}
+          {/* the sign is painted on every slat (so it breaks apart as they lift); a screen reader hears it once */}
+          <h1 className="sr-only">
+            {gym}, {branch}
+          </h1>
           {Array.from({ length: SLATS }, (_, i) => (
             <motion.div
               key={i}
+              aria-hidden
               className="absolute inset-0"
               style={{ transformOrigin: "50% 0%", zIndex: i + 1 }}
               animate={lifting ? (calm ? { opacity: 0 } : { y: `-${((SLATS - i) * 100) / SLATS + 2}%`, rotateX: [0, 8, 0] }) : { y: 0 }}
@@ -247,7 +289,7 @@ export function ShutterUp({ gym, branch, pin, hint, calm, onAct, onOpen, ctaLabe
           ))}
           <Rails />
           {/* the bottom slat: padlock and the way in */}
-          <motion.div className="absolute inset-x-0 bottom-0 z-30 flex flex-col items-center gap-3 px-4 pb-[max(44px,calc(env(safe-area-inset-bottom)+30px))]" animate={lifting ? (calm ? { opacity: 0 } : { y: "-110vh" }) : { y: 0 }} transition={calm ? { duration: 0.25 } : { delay: 0.12, duration: 0.52, ease: EASE_DOOR }}>
+          <motion.div className="absolute inset-x-0 bottom-0 z-30 flex flex-col items-center gap-3 px-4 pb-[max(52px,calc(env(safe-area-inset-bottom)+40px))]" animate={lifting ? (calm ? { opacity: 0 } : { y: RAIL_Y }) : { y: 0 }} transition={calm ? { duration: 0.25 } : { duration: LIFT_TOTAL, times: RAIL_T, ease: "linear" }}>
             <motion.svg width="46" height="56" viewBox="0 0 46 56" animate={lifting && !calm ? { rotate: 90, y: 40, opacity: 0 } : { rotate: 0 }} transition={{ rotate: { type: "spring", stiffness: 500, damping: 30, duration: 0.16 }, y: { delay: 0.16, duration: 0.2 }, opacity: { delay: 0.16, duration: 0.2 } }} aria-hidden>
               <path d="M12 24v-8a11 11 0 0 1 22 0v8" fill="none" stroke="var(--steel-hi)" strokeWidth="5" />
               <rect x="4" y="22" width="38" height="30" rx="3" fill="var(--brass)" stroke="#6d5430" strokeWidth="2" />
@@ -301,7 +343,12 @@ export function ShutterUp({ gym, branch, pin, hint, calm, onAct, onOpen, ctaLabe
                 </svg>
               </button>
             )}
-            {hint && <div className="t-teko text-center text-[15px]" style={{ color: "var(--iron-rim)" }}>{hint}</div>}
+            {hint && (
+              <div className="t-teko text-center text-[15px]" style={{ color: "var(--iron-rim)" }}>
+                <span className={touchHint ? "pointer-coarse:hidden" : undefined}>{hint}</span>
+                {touchHint && <span className="hidden pointer-coarse:inline">{touchHint}</span>}
+              </div>
+            )}
           </motion.div>
           {lifting && !calm && (
             <motion.div className="absolute inset-x-0 z-40" style={{ bottom: "50%" }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.45, duration: 0 }}>
@@ -321,7 +368,7 @@ export function ShutterUp({ gym, branch, pin, hint, calm, onAct, onOpen, ctaLabe
 /** Shutter Down: drops back over the desk. stopAt=0.6 leaves a gap under hazard tape. */
 export function ShutterDown({ stopAt, calm, children, sign }: { stopAt: number; calm: boolean; children?: ReactNode; sign?: string }) {
   return (
-    <div className="fixed inset-0 z-[75] overflow-hidden" role="dialog" aria-modal="true" aria-label={stopAt < 1 ? "Shutter stopped: cash count does not match" : "Shift closed"}>
+    <div data-shutter className="fixed inset-0 z-[75] overflow-hidden" role="dialog" aria-modal="true" aria-label={stopAt < 1 ? "Shutter stopped: cash count does not match" : "Shift closed"}>
       {Array.from({ length: SLATS }, (_, i) => {
         const visible = i >= Math.round(SLATS * (1 - stopAt));
         return (

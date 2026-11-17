@@ -21,6 +21,7 @@ export const TABLES: Record<TableName, Spec> = {
   staff: { sql: "staff", branchScoped: false, cols: c("id orgId branchId name role active") },
   templates: { sql: "templates", branchScoped: false, cols: c("id orgId stage lang body") },
   tasks: { sql: "tasks", branchScoped: true, cols: c("id branchId memberId kind createdAt doneAt") },
+  imports: { sql: "imports", branchScoped: true, cols: c("id branchId fileName rowCount createdAt undoneAt") },
   branch: { sql: "branches", branchScoped: false, json: ["settings"], cols: c("id name city vpa payeeName gstin color settings memberSeq receiptSeq") },
 };
 

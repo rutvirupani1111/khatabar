@@ -12,7 +12,7 @@ import { loadSnapshot } from "@/lib/server/snapshot";
 
 export const runtime = "nodejs";
 
-const MEMBER_OPS = ["renew", "pay", "freeze.set", "freeze.cancel", "member.update", "task.add", "checkin"];
+const MEMBER_OPS = ["renew", "pay", "pay.cancel", "freeze.set", "freeze.cancel", "member.update", "task.add", "checkin"];
 
 function metres(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
   const R = 6371000;

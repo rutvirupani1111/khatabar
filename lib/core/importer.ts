@@ -98,15 +98,53 @@ export function parseDate(v: unknown, order: "dmy" | "mdy" = "dmy"): string | nu
   return null;
 }
 
+/** The header is the row in the first 10 with the most cells we recognise (and at least 3 filled), so a
+ *  title line like "LOHA FITNESS - MEMBER LIST NOV 2026" above the real headers is stepped over. */
+export function headerRowOf(raw: unknown[][]): number {
+  let best = 0;
+  let bestScore = -1;
+  raw.slice(0, 10).forEach((r, i) => {
+    const filled = r.filter((x) => String(x ?? "").trim()).length;
+    if (filled < 3) return;
+    const score = new Set(r.map((x) => guessField(String(x ?? ""))).filter(Boolean)).size;
+    if (score > bestScore) {
+      best = i;
+      bestScore = score;
+    }
+  });
+  return best;
+}
+
+const DMY = /^(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{2,4})$/;
+
+/** Reads the date order from every date column at once: one 30/11/2026 anywhere proves day-first. */
+export function inferOrder(rows: unknown[][], cols: number[]): { order: "dmy" | "mdy" | null; sample: string | null } {
+  let sample: string | null = null;
+  for (const c of cols)
+    for (const r of rows) {
+      const v = String(r[c] ?? "").trim();
+      const m = DMY.exec(v);
+      if (!m) continue;
+      if (Number(m[1]) > 12) return { order: "dmy", sample: v };
+      if (Number(m[2]) > 12) return { order: "mdy", sample: v };
+      if (!sample && m[1] !== m[2]) sample = v;
+    }
+  return { order: null, sample };
+}
+
 /** True when every value in the column reads both ways (every day is 12 or less). */
 export function ambiguous(values: unknown[]) {
   const nums = values.map((v) => /^(\d{1,2})[/.\-](\d{1,2})[/.\-]\d{2,4}$/.exec(String(v ?? "").trim())).filter(Boolean) as RegExpExecArray[];
   return nums.length > 0 && nums.every((m) => Number(m[1]) <= 12 && Number(m[2]) <= 12) && nums.some((m) => m[1] !== m[2]);
 }
 
+// What a register writes when nothing is owed
+const NIL = /^(nil+|none|na|n\/a|nahi|nahin|paid|clear|cleared|zero|[-–—.]+|0+)$/i;
+
 export function money(v: unknown): number | null {
   if (v == null || v === "") return 0;
-  const s = String(v).replace(/[₹,\s]|rs\.?|inr/gi, "");
+  if (NIL.test(String(v).trim())) return 0;
+  const s = String(v).replace(/[₹,\s]|rs\.?|inr|\/-/gi, "");
   if (!/^-?\d+(\.\d+)?$/.test(s)) return null;
   return toPaise(s);
 }
@@ -156,8 +194,11 @@ export function parseRows(rows: unknown[][], map: Record<number, FieldKey | null
   const get = (r: unknown[], k: FieldKey) => (c[k] >= 0 ? r[c[k]] : undefined);
   const seen = new Map<string, number>();
   return rows
-    .filter((r) => r.some((x) => String(x ?? "").trim()))
-    .map((r, i) => {
+    .map((r, i) => ({ r, i }))
+    .filter(({ r }) => r.some((x) => String(x ?? "").trim()))
+    // the sheet's own TOTAL line is arithmetic, not a member
+    .filter(({ r }) => !(/^(grand\s*)?(total|sum|kul|कुल)(\s|:|$)/i.test(String(get(r, "name") ?? "").trim()) && !cleanPhone(String(get(r, "phone") ?? ""))))
+    .map(({ r, i }) => {
       const name = String(get(r, "name") ?? "").trim();
       const rawPhone = String(get(r, "phone") ?? "").trim();
       const phone = cleanPhone(rawPhone);

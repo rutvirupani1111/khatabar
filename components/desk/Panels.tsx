@@ -1,7 +1,7 @@
 "use client";
 import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
-import { fmtDay, istClock, todayIST } from "@/lib/core/dates";
+import { fmtDate, fmtDay, fmtSpan, istClock, todayIST } from "@/lib/core/dates";
 import { rupees } from "@/lib/core/money";
 import type { Snapshot } from "@/lib/core/types";
 import { useGym } from "@/components/shell/Gym";
@@ -222,10 +222,19 @@ export function MemberLedger({ snap, memberId }: { snap: Snapshot; memberId: str
   const plans = new Map(snap.plans.map((p) => [p.id, p]));
   const lines: { at: string; text: string; tone?: string }[] = [];
   for (const ms of snap.memberships.filter((x) => x.memberId === memberId))
-    lines.push({ at: ms.createdAt, text: `${ms.status === "void" ? "VOID " : ms.status === "requested" ? "REQUESTED " : ""}${plans.get(ms.planId)?.nameEn ?? "Plan"} ${fmtDay(ms.startDate)} to ${fmtDay(ms.baseEndDate)}${ms.discount ? ` · disc ${rupees(ms.discount)}` : ""} · ${staff.get(ms.createdBy ?? "") ?? "member"}`, tone: ms.status === "void" ? "var(--muted-on-paper)" : undefined });
+    lines.push({ at: ms.createdAt, text: `${ms.status === "void" ? "VOID " : ms.status === "requested" ? "REQUESTED " : ""}${plans.get(ms.planId)?.nameEn ?? "Plan"} ${fmtSpan(ms.startDate, ms.baseEndDate)}${ms.discount ? ` · disc ${rupees(ms.discount)}` : ""} · ${staff.get(ms.createdBy ?? "") ?? "member"}`, tone: ms.status === "void" ? "var(--muted-on-paper)" : undefined });
   for (const p of snap.payments.filter((x) => x.memberId === memberId))
-    lines.push({ at: p.createdAt, text: `${p.reversesId ? "REVERSAL " : ""}${rupees(p.amount)} ${p.mode.replace("_", " ")} ${p.state}${p.receiptNo ? ` · ${p.receiptNo}` : ""} · ${staff.get(p.receivedBy ?? "") ?? "member"}`, tone: p.reversesId || p.state === "rejected" ? "var(--margin-red)" : p.state === "pending" ? "var(--stamp-pending)" : undefined });
-  for (const f of snap.freezes.filter((x) => x.memberId === memberId)) lines.push({ at: f.createdAt, text: `Freeze ${f.days} days ${fmtDay(f.fromDate)} to ${fmtDay(f.toDate)} · ${f.reason} · ${f.state}`, tone: "var(--stamp-freeze)" });
+    lines.push({
+      at: p.createdAt,
+      text:
+        p.mode === "import"
+          ? p.amount < 0
+            ? `${rupees(-p.amount)} owed on the old sheet · opening balance`
+            : `${rupees(p.amount)} paid before Khatabar · from the old sheet`
+          : `${p.reversesId ? "REVERSAL " : ""}${rupees(p.amount)} ${p.mode.replace("_", " ")} ${p.state}${p.receiptNo ? ` · ${p.receiptNo}` : ""} · ${staff.get(p.receivedBy ?? "") ?? "member"}`,
+      tone: p.reversesId || p.state === "rejected" ? "var(--margin-red)" : p.state === "pending" ? "var(--stamp-pending)" : p.mode === "import" ? "var(--carbon)" : undefined,
+    });
+  for (const f of snap.freezes.filter((x) => x.memberId === memberId)) lines.push({ at: f.createdAt, text: `Freeze ${f.days} days ${fmtSpan(f.fromDate, f.toDate)} · ${f.reason} · ${f.state}`, tone: "var(--stamp-freeze)" });
   lines.sort((a, b) => (a.at < b.at ? 1 : -1));
   const visits = snap.checkins.filter((c) => c.memberId === memberId);
   const today = todayIST();
@@ -239,8 +248,8 @@ export function MemberLedger({ snap, memberId }: { snap: Snapshot; memberId: str
       </div>
       {lines.slice(0, 12).map((l, i) => (
         <div key={i} className="flex h-8 items-center gap-2 pl-[72px] pr-3">
-          <span className="t-mono w-14 shrink-0 text-[11px]" style={{ color: "var(--muted-on-paper)" }}>
-            {fmtDay(todayIST(Date.parse(l.at)))}
+          <span className="t-mono w-[78px] shrink-0 text-[11px]" style={{ color: "var(--muted-on-paper)" }}>
+            {fmtDate(todayIST(Date.parse(l.at)), today)}
           </span>
           <span className="t-mono truncate text-[12px]" style={{ color: l.tone ?? "var(--ink)" }}>
             {l.text}

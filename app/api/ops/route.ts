@@ -1,7 +1,7 @@
 // The idempotent op log. The desk sends its changes in order; each one is
 // re-run here with the same applyOp the desk used, against the database's own
 // rows, then written in one transaction. A retried op is answered from the log.
-import { applyMutations, applyOp, OP_KINDS, type Op } from "@/lib/core/ops";
+import { applyMutations, applyOp, DEMO_ONLY_OPS, OP_KINDS, type Op } from "@/lib/core/ops";
 import type { Mutation, Role } from "@/lib/core/types";
 import { actorFor, checkSecret, memberToken, sha256, shortId } from "@/lib/server/auth";
 import { db, tx } from "@/lib/server/db";
@@ -28,7 +28,7 @@ export async function POST(req: Request) {
   let loaded = await loadSnapshot(b.branchId);
   if (!loaded || loaded.snap.org.id !== actor.orgId) return fail("Branch not found", 404);
   for (const op of b.ops) {
-    if (!op?.id || !OP_KINDS.includes(op.kind) || op.kind === "staff.upsert") {
+    if (!op?.id || !OP_KINDS.includes(op.kind) || op.kind === "staff.upsert" || DEMO_ONLY_OPS.includes(op.kind)) {
       results.push({ id: op?.id ?? "", ok: false, error: "Unknown change" });
       continue;
     }

@@ -3,7 +3,7 @@ import QRCode from "qrcode";
 import { useEffect, useState } from "react";
 
 /** QR drawn as SVG inside a box of fixed size, so it never shifts the layout. */
-export function Qr({ text, size = 160, dark = "#0E0F10", light = "#F1EEE4", label, watermark }: { text: string; size?: number; dark?: string; light?: string; label?: string; watermark?: string }) {
+export function Qr({ text, size = 160, dark = "#0E0F10", light = "#F1EEE4", label, watermark, fill }: { text: string; size?: number; dark?: string; light?: string; label?: string; watermark?: string; fill?: boolean }) {
   const [svg, setSvg] = useState("");
   useEffect(() => {
     let live = true;
@@ -15,7 +15,7 @@ export function Qr({ text, size = 160, dark = "#0E0F10", light = "#F1EEE4", labe
     };
   }, [text, dark, light]);
   return (
-    <div className="relative shrink-0" style={{ width: size, height: size, background: light }} role="img" aria-label={label ?? "QR code"}>
+    <div className="relative shrink-0" style={{ width: fill ? "100%" : size, height: fill ? "100%" : size, background: light }} role="img" aria-label={label ?? "QR code"}>
       <div className="h-full w-full [&>svg]:h-full [&>svg]:w-full" dangerouslySetInnerHTML={{ __html: svg }} />
       {watermark && (
         <div className="pointer-events-none absolute inset-0 grid place-items-center">

@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { Plate } from "@/components/art";
 import { Qr } from "@/components/art/Qr";
+import { RecentImports } from "@/components/import/Importer";
 import { Bubble } from "@/components/rack/Rack";
 import { useDerived, useGym, useGymState, useSnap } from "@/components/shell/Gym";
 import { message, origin } from "@/components/shell/links";
@@ -51,6 +52,23 @@ export function Settings() {
           Settings · {B.name}
         </h1>
         {!owner && <p className="t-hand text-[16px] leading-8" style={{ color: "var(--margin-red)" }}>Only the owner can change most of this page. Sign in as the owner.</p>}
+        {snap.imports.length > 0 && (
+          <div className="-ml-[72px]">
+            <RecentImports
+              list={snap.imports}
+              onUndo={async (id) => {
+                if (mode === "demo") {
+                  const r = store.run("import.undo", { id });
+                  return store.note(r.ok ? "Import undone. Those members are archived, nothing was deleted." : r.error ?? "Not undone", r.ok ? "ink" : "red");
+                }
+                const res = await fetch(`/api/b/${B.id}/import-undo`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ importId: id }) });
+                if (!res.ok) return store.note((await res.json().catch(() => ({}))).error ?? "Not undone");
+                await store.refresh();
+                store.note("Import undone. Those members are archived, nothing was deleted.", "ink");
+              }}
+            />
+          </div>
+        )}
 
         <H>Branch</H>
         <div className="grid gap-x-4 sm:grid-cols-2">

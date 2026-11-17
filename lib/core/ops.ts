@@ -1,7 +1,7 @@
 // Every change is an operation. applyOp is pure: the browser runs it for the
 // optimistic line, the server runs the same code against its own rows, so the
 // desk and the database can never compute a renewal differently.
-import { addDays, diffDays, fyLabel, istHour, planEnd, todayIST } from "./dates";
+import { addDays, addMonths, diffDays, fyLabel, istHour, planEnd, todayIST } from "./dates";
 import { cleanPhone } from "./money";
 import { derive, freezeRules, renewalStart } from "./state";
 import type { Actor, Member, Membership, Mutation, Payment, Reminder, Role, Snapshot, TableName } from "./types";
@@ -19,6 +19,22 @@ export interface ApplyCtx {
   /** Checks a manager/owner PIN typed at the desk. Server: bcrypt-style hash. Demo: seed PINs. */
   checkPin?: (pin: string, roles: Role[]) => string | null; // returns staff id
   now?: number;
+}
+
+export interface ImportRowOp {
+  memberId: string;
+  membershipId: string;
+  paymentId: string;
+  name: string;
+  phone: string;
+  planId: string | null;
+  start: string | null;
+  end: string | null;
+  paid: number;
+  due: number;
+  notes: string;
+  gender: string;
+  dob: string | null;
 }
 
 export interface Applied {
@@ -59,7 +75,14 @@ const CAN: Record<string, (Role | "member")[]> = {
   "task.add": [...STAFF, "member"],
   "task.done": MGR,
   "pt.log": ALL,
+  "pay.cancel": [...STAFF, "member"],
+  // demo only: a real gym's import goes through /api/b/[id]/import, which writes the same rows
+  "import.rows": STAFF,
+  "import.undo": STAFF,
 };
+
+/** Kinds the server's op log refuses: they exist so the in-browser demo can run the same rules. */
+export const DEMO_ONLY_OPS = ["import.rows", "import.undo"];
 
 export const OP_KINDS = Object.keys(CAN);
 
@@ -160,7 +183,7 @@ export function applyOp(s: Snapshot, op: Op, actor: OpActor, ctx: ApplyCtx = {})
       let approver: string | null = null;
       if (discount > (plan.price * B.settings.discountLimitPct) / 100 && actor.role !== "owner" && actor.role !== "manager") {
         approver = p.approverPin && ctx.checkPin ? ctx.checkPin(String(p.approverPin), MGR) : null;
-        if (!approver) return fail(`Discount above ${B.settings.discountLimitPct}% needs a manager PIN`);
+        if (!approver) return fail(p.approverPin ? "Wrong PIN. Ask the manager to type theirs." : `Discount above ${B.settings.discountLimitPct}% needs a manager PIN`);
       }
       const { start } = p.startDate && actor.role !== "member" ? { start: String(p.startDate) } : renewalStart(st, today, B.settings.backdateWithin7);
       const firstEver = !s.memberships.some((x) => x.memberId === member.id && x.status !== "void");
@@ -441,6 +464,91 @@ export function applyOp(s: Snapshot, op: Op, actor: OpActor, ctx: ApplyCtx = {})
     case "task.done":
       return { muts: [upd("tasks", { id: p.id, doneAt: nowIso })] };
 
+    case "pay.cancel": {
+      // "Yes, paid" tapped by mistake: the member takes it back while nobody has matched it yet
+      const pay = s.payments.find((x) => x.id === p.id);
+      if (!pay || !memberOnly(pay.memberId)) return fail("Payment not found");
+      if (pay.state !== "pending") return fail("The desk already matched this payment");
+      if (actor.role === "member" && now - Date.parse(pay.createdAt) > 10 * 60_000) return fail("Ask the desk to cancel it now");
+      const muts: Mutation[] = [upd("payments", { id: pay.id, state: "rejected", confirmedBy: actor.staffId, confirmedAt: nowIso })];
+      const ms = pay.membershipId ? s.memberships.find((x) => x.id === pay.membershipId) : null;
+      if (ms && ms.status === "requested") muts.push(upd("memberships", { id: ms.id, status: "void" }));
+      return { muts };
+    }
+
+    case "import.rows": {
+      // The old sheet's history: no joining fee (they joined long ago), the sheet's paid + due as the bill,
+      // and the paid part as an opening balance dated to the sheet's start date, never today's cash.
+      const rows = (p.rows ?? []) as ImportRowOp[];
+      const muts: Mutation[] = [];
+      const phones = new Set(s.members.filter((m) => !m.archivedAt).map((m) => m.phone));
+      let seq = B.memberSeq;
+      let n = 0;
+      for (const r of rows) {
+        const phone = cleanPhone(r.phone);
+        const name = String(r.name ?? "").trim();
+        if (!phone || phones.has(phone) || name.length < 2) continue;
+        phones.add(phone);
+        seq++;
+        n++;
+        const opened = r.start ? `${r.start}T06:00:00+05:30` : nowIso;
+        const openedIso = new Date(Date.parse(opened)).toISOString();
+        muts.push(
+          ins("members", {
+            id: r.memberId,
+            ...base,
+            memberNo: `${B.code}-${pad4(seq)}`,
+            name: name.slice(0, 80),
+            phone,
+            altPhone: "",
+            emergency: "",
+            gender: String(r.gender ?? "").slice(0, 1),
+            dob: r.dob ?? null,
+            photo: null,
+            notes: String(r.notes ?? "").slice(0, 300),
+            source: "import",
+            importId: p.importId,
+            waConsentAt: null,
+            remindersOptOut: false,
+            weeklyTarget: 3,
+            trainerId: null,
+            archivedAt: null,
+            anonymisedAt: null,
+            createdAt: nowIso,
+            updatedAt: nowIso,
+          } as never),
+        );
+        const plan = r.planId ? s.plans.find((x) => x.id === r.planId) : null;
+        const paid = Math.max(0, Math.round(Number(r.paid) || 0));
+        const due = Math.max(0, Math.round(Number(r.due) || 0));
+        if (plan && (r.start || r.end)) {
+          const start = r.start ?? (plan.months ? addDays(addMonths(r.end!, -plan.months), 1) : addDays(r.end!, 1 - Math.max(1, plan.days)));
+          const end = r.end ?? planEnd(start, plan.months, plan.days);
+          muts.push(
+            ins("memberships", { id: r.membershipId, ...base, memberId: r.memberId, planId: plan.id, addonOf: null, startDate: start, baseEndDate: end, frozenDays: 0, price: paid + due || plan.price, discount: 0, joiningFee: 0, status: "active", lapseReason: null, sessionsLeft: null, createdBy: actor.staffId, createdAt: openedIso } as never),
+          );
+          if (paid > 0) muts.push(ins("payments", { id: r.paymentId, ...base, memberId: r.memberId, membershipId: r.membershipId, amount: paid, mode: "import", state: "confirmed", utrLast4: "", receivedBy: null, confirmedBy: actor.staffId, confirmedAt: openedIso, reversesId: null, receiptNo: "", createdAt: openedIso } as never));
+        } else if (due > 0) {
+          // no plan to hang it on: the sheet's balance becomes an opening due line
+          muts.push(ins("payments", { id: r.paymentId, ...base, memberId: r.memberId, membershipId: null, amount: -due, mode: "import", state: "confirmed", utrLast4: "", receivedBy: null, confirmedBy: actor.staffId, confirmedAt: nowIso, reversesId: null, receiptNo: "", createdAt: nowIso } as never));
+        }
+      }
+      if (!n) return fail("No rows to import");
+      muts.push(upd("branch", { id: B.id, memberSeq: seq }));
+      muts.push(ins("imports", { id: p.importId, branchId: B.id, fileName: String(p.fileName ?? "").slice(0, 120), rowCount: n, createdAt: nowIso, undoneAt: null }));
+      return { muts, note: `${n} filed` };
+    }
+
+    case "import.undo": {
+      const rec = s.imports.find((x) => x.id === p.id);
+      if (!rec) return fail("Import not found");
+      if (rec.undoneAt) return fail("Already undone");
+      if (now - Date.parse(rec.createdAt) > 24 * 3600000) return fail("The 24 hour undo window has closed");
+      const muts: Mutation[] = s.members.filter((m) => m.importId === rec.id && !m.archivedAt).map((m) => upd("members", { id: m.id, archivedAt: nowIso, updatedAt: nowIso }));
+      muts.push(upd("imports", { id: rec.id, undoneAt: nowIso }));
+      return { muts };
+    }
+
     case "pt.log": {
       const ms = s.memberships.find((x) => x.id === p.membershipId);
       if (!ms || ms.sessionsLeft == null) return fail("No PT pack");
@@ -498,6 +606,7 @@ const KEY: Record<TableName, keyof Snapshot> = {
   staff: "staff",
   templates: "templates",
   tasks: "tasks",
+  imports: "imports",
   branch: "branch",
 };
 

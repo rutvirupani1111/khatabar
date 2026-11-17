@@ -77,6 +77,29 @@ export function fmtDay(date: string | null | undefined, lang: "en" | "hi" = "en"
   return `${d} ${(lang === "hi" ? MON_HI : MON)[m - 1]}`;
 }
 
+/** "14 Nov", or "14 Nov 2027" when the date sits in another year or 300+ days from the reference,
+ *  so a yearly term never reads like a one-day plan. */
+export function fmtDate(date: string | null | undefined, ref: string = todayIST(), lang: "en" | "hi" = "en") {
+  if (!date) return "";
+  const y = date.slice(0, 4);
+  return y !== ref.slice(0, 4) || Math.abs(diffDays(date, ref)) >= 300 ? `${fmtDay(date, lang)} ${y}` : fmtDay(date, lang);
+}
+
+/** "15 Nov to 14 Dec", or with both years when the span crosses a year or runs 300+ days. */
+export function fmtSpan(a: string, b: string, lang: "en" | "hi" = "en") {
+  const long = a.slice(0, 4) !== b.slice(0, 4) || diffDays(b, a) >= 300;
+  const to = lang === "hi" ? "से" : "to";
+  return long ? `${fmtDay(a, lang)} ${a.slice(0, 4)} ${to} ${fmtDay(b, lang)} ${b.slice(0, 4)}` : `${fmtDay(a, lang)} ${to} ${fmtDay(b, lang)}`;
+}
+
+/** 12-hour clock a member reads: "5:24 am", or "सुबह 5:24" in Hindi. */
+export function istTime(iso: string | number, lang: "en" | "hi" = "en") {
+  const p = istParts(typeof iso === "number" ? iso : Date.parse(iso));
+  const t = `${p.h % 12 || 12}:${pad(p.min)}`;
+  if (lang === "hi") return `${p.h < 12 ? "सुबह" : p.h < 16 ? "दोपहर" : "शाम"} ${t}`;
+  return `${t} ${p.h < 12 ? "am" : "pm"}`;
+}
+
 export function fmtDayYear(date: string) {
   const [y, m, d] = date.split("-").map(Number);
   return `${d} ${MON[m - 1]} ${y}`;

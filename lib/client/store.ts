@@ -242,7 +242,8 @@ export function demoRepo(code: "LP" | "LV", actor: OpActor = { staffId: "st-ravi
     kind: "demo",
     cacheKey,
     async load() {
-      const today = todayIST();
+      // the seed version rides with the date, so a browser holding an older demo gets the new one
+      const today = `${todayIST()}|seed-v3`;
       const cached = await idbGet<Snapshot & { seededFor?: string }>(`${cacheKey}:base`);
       let snap: Snapshot;
       if (cached && cached.seededFor === today) snap = cached;

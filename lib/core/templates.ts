@@ -1,4 +1,4 @@
-import { fmtDay } from "./dates";
+import { fmtDate, todayIST } from "./dates";
 import { firstName, rupeesBare } from "./money";
 import type { Lang, Stage, Template } from "./types";
 
@@ -71,7 +71,8 @@ export function fill(body: string, v: FillVars, lang: Lang = "en") {
     gym: v.gym,
     branch: v.branch,
     plan: v.plan,
-    expiry: fmtDay(v.expiry, lang === "hi" ? "en" : "en"),
+    // a yearly renewal reads "14 Nov 2027", never a bare "14 Nov" on the 14th of November
+    expiry: fmtDate(v.expiry, todayIST()),
     days_left: String(Math.max(0, v.daysLeft ?? 0)),
     amount: rupeesBare(v.amount),
     pay_link: v.payLink,

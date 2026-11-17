@@ -34,7 +34,7 @@ export function SyncTag() {
 export function MarginNotes() {
   const notes = useGymState((s) => s.notes);
   return (
-    <div className="pointer-events-none fixed bottom-4 left-4 z-[90] flex max-w-[min(420px,calc(100vw-32px))] flex-col gap-2" aria-live="polite">
+    <div className="margin-notes pointer-events-none fixed bottom-4 left-4 z-[90] flex max-w-[min(420px,calc(100vw-32px))] flex-col gap-2" aria-live="polite">
       <AnimatePresence>
         {notes.map((n) => (
           <motion.div key={n.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="ledger-plain px-4 py-2 t-hand text-[16px]" style={{ color: n.tone === "red" ? "var(--margin-red)" : "var(--ink)", boxShadow: "0 6px 16px -8px #000", borderLeft: "3px double var(--margin-red)" }}>
@@ -145,7 +145,7 @@ export function TopBar({ right, compact }: { right?: ReactNode; compact?: boolea
           )}
         </div>
       )}
-      <nav className="ml-auto flex flex-wrap items-center gap-1" aria-label="Screens">
+      <nav className="navrow ml-auto flex items-center gap-1 max-sm:-mx-3 max-sm:w-[calc(100%+24px)] max-sm:flex-nowrap max-sm:overflow-x-auto max-sm:px-3 sm:flex-wrap" aria-label="Screens">
         {NAV.map((n) => {
           const on = path.endsWith(n.href);
           return (
