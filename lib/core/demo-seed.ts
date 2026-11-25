@@ -97,7 +97,7 @@ export function demoSnapshot(branchCode: "LP" | "LV" = "LP", now = Date.now()): 
     receiptSeq: 0,
   };
   const staff: Staff[] = [
-    { id: "st-owner", orgId, branchId: null, name: "Harish Lohar", role: "owner", active: true },
+    { id: "st-owner", orgId, branchId: null, name: "Meena Lohar", role: "owner", active: true },
     { id: "st-sunita", orgId, branchId, name: "Sunita", role: "manager", active: true },
     { id: "st-ravi", orgId, branchId, name: "Ravi", role: "desk", active: true },
     { id: "st-imran", orgId, branchId, name: "Imran", role: "trainer", active: true },

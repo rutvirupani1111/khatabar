@@ -1,7 +1,9 @@
 "use client";
-// A narrow carbon-copy receipt slip. Shared on WhatsApp as a link or saved as a PNG.
+// A receipt the gym sends on WhatsApp as a link: paper, money in a fixed-width face, a PAID stamp
+// only when the money was confirmed by the desk.
 import { useRef } from "react";
-import { Stamp } from "@/components/art";
+import { Chip, PaidStamp } from "@/components/ui/Status";
+import { KbMark } from "@/components/ui/Icon";
 import { rupees } from "@/lib/core/money";
 
 export interface ReceiptData {
@@ -28,55 +30,51 @@ export function ReceiptSlip({ r }: { r: ReceiptData }) {
   const save = async () => {
     if (!ref.current) return;
     const { toPng } = await import("html-to-image");
-    const url = await toPng(ref.current, { pixelRatio: 2, backgroundColor: "#EFE5CC" });
+    const url = await toPng(ref.current, { pixelRatio: 2, backgroundColor: "#FFFBF2" });
     const a = document.createElement("a");
     a.href = url;
     a.download = `receipt-${r.receiptNo.replace(/\//g, "-") || "pending"}.png`;
     a.click();
   };
   const line = (k: string, v: string) => (
-    <div className="flex h-8 items-center justify-between gap-3">
-      <span className="t-teko text-[15px]" style={{ color: "var(--muted-on-paper)" }}>
-        {k}
-      </span>
-      <span className="carbon carbon-ghost t-mono text-right text-[13px]" data-ghost={v}>
-        {v}
-      </span>
+    <div className="flex min-h-9 items-center justify-between gap-3 border-b border-dashed border-[var(--line)]">
+      <span className="text-[14px] text-[var(--muted-ink)]">{k}</span>
+      <span className="t-mono text-right text-[14px]">{v}</span>
     </div>
   );
   return (
-    <div className="ledger-plain grid min-h-dvh place-items-center px-3 py-6" data-theme="light">
-      <div className="w-full max-w-[360px]">
-        <div ref={ref} className="ledger-plain relative px-5 pb-6 pt-4" style={{ boxShadow: "0 1px 0 #c9bd9e, 0 12px 30px -16px rgba(0,0,0,.45)", borderTop: "8px dotted #cbbf9f" }}>
-          {r.demo && <span className="steel-tag absolute right-2 top-2">Demo receipt</span>}
-          <div className="t-stencil text-center text-[30px]" style={{ color: "var(--ink)" }}>
-            {r.gym}
+    <div className="grid min-h-dvh place-items-center bg-[var(--cream)] px-3 py-6">
+      <div className="w-full max-w-[380px]">
+        <div ref={ref} className="panel relative px-5 pb-5 pt-4">
+          {r.demo && <span className="absolute right-3 top-3 rounded-full bg-[var(--marigold)] px-2 py-0.5 text-[12px] font-bold">Demo receipt</span>}
+          <div className="flex items-center gap-2">
+            <KbMark size={26} />
+            <div>
+              <div className="t-display text-[22px] leading-tight">{r.gym}</div>
+              <div className="text-[13px] text-[var(--muted-ink)]">
+                {r.branch}
+                {r.gstin ? ` · GSTIN ${r.gstin}` : ""}
+              </div>
+            </div>
           </div>
-          <div className="t-teko text-center text-[16px]" style={{ color: "var(--carbon)" }}>
-            {r.branch}
-            {r.gstin ? ` · GSTIN ${r.gstin}` : ""}
+          <div className="mt-3">
+            {line("Receipt", r.receiptNo || "Number given when the desk confirms")}
+            {line("Date", r.at)}
+            {line("Member", `${r.member} (${r.memberNo})`)}
+            {line("For", r.plan)}
+            {r.period && line("Period", r.period)}
+            {line("Paid by", r.mode + (r.utr ? ` · UPI ref ${r.utr}` : ""))}
+            {line("Taken by", r.staff)}
+            {r.validTill && line("Valid till", r.validTill)}
           </div>
-          <div className="my-2 border-t border-dashed border-[var(--carbon)]/40" />
-          {line("Receipt", r.receiptNo || "not yet numbered")}
-          {line("Date", r.at)}
-          {line("Member", `${r.memberNo} ${r.member}`)}
-          {line("For", r.plan)}
-          {r.period && line("Period", r.period)}
-          {line("Paid by", r.mode + (r.utr ? ` · UTR ${r.utr}` : ""))}
-          {line("Taken by", r.staff)}
-          {r.validTill && line("Valid till", r.validTill)}
-          <div className="mt-3 flex items-end justify-between">
-            <span className="t-stencil text-[40px]" style={{ color: "var(--ink)" }}>
-              {rupees(r.amount)}
-            </span>
-            <Stamp kind={r.state === "confirmed" ? "paid" : "pending"} word={r.state === "confirmed" ? "PAID" : "PENDING"} seed={r.receiptNo || r.at} size={0.8} drop={false} />
+          <div className="mt-3 flex items-end justify-between gap-2">
+            <span className="t-mono text-[34px] font-medium">{rupees(r.amount)}</span>
+            {r.state === "confirmed" ? <PaidStamp size={0.8} /> : <Chip kind="wait" text="Waiting for money" />}
           </div>
-          <p className="t-hand mt-2 text-[13px]" style={{ color: "var(--muted-on-paper)" }}>
-            Written in the Khatabar register. Prices include GST where the plan says so.
-          </p>
+          <p className="mt-2 text-[13px] text-[var(--muted-ink)]">Prices include GST where the plan says so.</p>
         </div>
         <div className="mt-4 flex justify-center gap-2">
-          <button type="button" className="btn-ink" onClick={() => void save()}>
+          <button type="button" className="btn" onClick={() => void save()}>
             Save as image
           </button>
         </div>
@@ -84,4 +82,3 @@ export function ReceiptSlip({ r }: { r: ReceiptData }) {
     </div>
   );
 }
-

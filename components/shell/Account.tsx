@@ -1,60 +1,57 @@
 "use client";
-// Sign up, setup on one page of register paper, sign in, pairing a desk tablet,
-// and the owner's view of every branch.
+// Start for my gym, sign in, pairing a desk computer, and the owner's view of every branch.
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
-import { Plate } from "@/components/art";
+import { useEffect, useState, type ReactNode } from "react";
 import { Qr } from "@/components/art/Qr";
-import { MiniSlate } from "@/components/owner/Owner";
+import { Icon, KbMark } from "@/components/ui/Icon";
 import { demoRepo } from "@/lib/client/store";
-import { VPA_RE } from "@/lib/core/money";
-import type { PlateKey, Snapshot } from "@/lib/core/types";
+import { rupees, VPA_RE } from "@/lib/core/money";
+import { computeSlate } from "@/lib/core/slate";
+import type { Snapshot } from "@/lib/core/types";
 import { origin } from "./links";
 
 async function post<T>(url: string, body: unknown): Promise<T & { error?: string }> {
   const r = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-  const j = await r.json().catch(() => ({ error: "No answer from the server" }));
-  return r.ok ? j : { ...j, error: j.error ?? `HTTP ${r.status}` };
+  const j = await r.json().catch(() => ({ error: "No answer from the server. Check the internet and try again." }));
+  return r.ok ? j : { ...j, error: j.error ?? `Something went wrong (${r.status})` };
 }
 
-function Paper({ children, title, sub }: { children: React.ReactNode; title: string; sub?: string }) {
+function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (
-    <div className="ledger holes min-h-dvh pb-16 pt-6" data-theme="light">
-      <div className="mx-auto max-w-[760px] pl-[72px] pr-4">
-        <Link href="/" className="t-teko text-[16px] underline" style={{ color: "var(--carbon)" }}>
-          Khatabar
-        </Link>
-        <h1 className="t-stencil text-[40px] leading-[64px]" style={{ color: "var(--ink)" }}>
-          {title}
-        </h1>
-        {sub && (
-          <p className="t-hand text-[17px] leading-8" style={{ color: "var(--carbon)" }}>
-            {sub}
-          </p>
-        )}
-        {children}
-      </div>
-    </div>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="block min-h-16">
-      <span className="t-teko block text-[16px] leading-8" style={{ color: "var(--carbon)" }}>
-        {label}
-      </span>
-      {children}
+    <label className="block">
+      <span className="label">{label}</span>
+      <span className="mt-1 block">{children}</span>
+      {hint && <span className="mt-1 block text-[13px] text-[var(--muted-ink)]">{hint}</span>}
     </label>
   );
 }
 
-const DEFAULT_PLANS: { k: string; nameEn: string; nameHi: string; months: number; price: number; plate: PlateKey; fz: [number, number, number] }[] = [
-  { k: "m", nameEn: "Monthly", nameHi: "मासिक", months: 1, price: 1200, plate: "p10", fz: [1, 7, 3] },
-  { k: "q", nameEn: "Quarterly", nameHi: "तिमाही", months: 3, price: 3200, plate: "p15", fz: [3, 30, 5] },
-  { k: "h", nameEn: "Half-yearly", nameHi: "छमाही", months: 6, price: 5800, plate: "p20", fz: [3, 45, 5] },
-  { k: "y", nameEn: "Yearly", nameHi: "सालाना", months: 12, price: 9999, plate: "p25", fz: [3, 60, 7] },
+function Password({ value, onChange, auto, min }: { value: string; onChange: (v: string) => void; auto: string; min?: number }) {
+  const [show, setShow] = useState(false);
+  return (
+    <span className="flex gap-2">
+      <input required type={show ? "text" : "password"} minLength={min} className="input" value={value} onChange={(e) => onChange(e.target.value)} autoComplete={auto} />
+      <button type="button" className="btn shrink-0" aria-pressed={show} onClick={() => setShow((v) => !v)}>
+        {show ? "Hide" : "Show"}
+      </button>
+    </span>
+  );
+}
+
+function Err({ children }: { children: ReactNode }) {
+  return (
+    <p role="alert" className="rounded-lg bg-[#fde2ea] p-2 text-[15px] font-semibold text-[#9b0f3f]">
+      {children}
+    </p>
+  );
+}
+
+const DEFAULT_PLANS: { k: string; nameEn: string; nameHi: string; months: number; plate: string; fz: [number, number, number] }[] = [
+  { k: "m", nameEn: "Monthly", nameHi: "मासिक", months: 1, plate: "p10", fz: [1, 7, 3] },
+  { k: "q", nameEn: "Quarterly", nameHi: "तिमाही", months: 3, plate: "p15", fz: [3, 30, 5] },
+  { k: "h", nameEn: "Half-yearly", nameHi: "छमाही", months: 6, plate: "p20", fz: [3, 45, 5] },
+  { k: "y", nameEn: "Yearly", nameHi: "सालाना", months: 12, plate: "p25", fz: [3, 60, 7] },
 ];
 
 export function Start() {
@@ -87,10 +84,10 @@ export function Start() {
     setBranch((b) => ({ ...b, city: acct.city, payeeName: acct.gym }));
     await loadMe();
   };
-
   const first = !me?.branches?.length;
   const setup = async () => {
-    if (!VPA_RE.test(branch.vpa.trim())) return setErr("That UPI ID does not look right, e.g. lohapuri@okaxis");
+    if (!VPA_RE.test(branch.vpa.trim())) return setErr("That UPI ID does not look right. It looks like yourgym@okaxis.");
+    if (first && !/^\d{4}$/.test(ownerPin)) return setErr("Choose your own 4-digit owner PIN.");
     setBusy(true);
     const plans = first
       ? [
@@ -105,160 +102,141 @@ export function Start() {
     setMade(r.branchId);
   };
 
-  if (!me) return <Paper title="Open your gym's register">{null}</Paper>;
-
+  if (!me) return <div className="skeleton h-[420px]" aria-hidden />;
   if (made) return <PairPanel branchId={made} />;
 
   if (!me.user)
     return (
-      <Paper title="Open your gym's register" sub="One evening of setup. Email and password, no card, no SMS. Phone sign-in comes later.">
-        <form
-          className="mt-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void signup();
-          }}
-        >
-          <Field label="Your name">
-            <input className="field !font-[family-name:var(--font-sans)]" value={acct.name} onChange={(e) => setAcct({ ...acct, name: e.target.value })} autoComplete="name" />
-          </Field>
-          <Field label="Gym name">
-            <input required className="field !font-[family-name:var(--font-sans)]" value={acct.gym} onChange={(e) => setAcct({ ...acct, gym: e.target.value })} placeholder="e.g. Shakti Fitness" />
-          </Field>
-          <Field label="City">
-            <input className="field !font-[family-name:var(--font-sans)]" value={acct.city} onChange={(e) => setAcct({ ...acct, city: e.target.value })} />
-          </Field>
-          <Field label="Email">
-            <input required type="email" className="field" value={acct.email} onChange={(e) => setAcct({ ...acct, email: e.target.value })} autoComplete="email" />
-          </Field>
-          <Field label="Password (8 or more characters)">
-            <input required type="password" minLength={8} className="field" value={acct.password} onChange={(e) => setAcct({ ...acct, password: e.target.value })} autoComplete="new-password" />
-          </Field>
-          {err && <p className="t-hand text-[16px] leading-8" style={{ color: "var(--margin-red)" }}>{err}</p>}
-          <div className="mt-4 flex flex-wrap gap-3">
-            <button type="submit" className="btn-brass" disabled={busy}>
-              {busy ? "Writing it down" : "Continue to setup"}
-            </button>
-            <Link href="/login" className="btn-ink">
-              I already have a gym
-            </Link>
-          </div>
-        </form>
-      </Paper>
+      <form
+        className="flex flex-col gap-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void signup();
+        }}
+      >
+        <h1 className="t-display text-[32px] leading-tight">Start for my gym</h1>
+        <p className="text-[16px]">Free for one branch, up to 75 active members. Email and password, no card needed.</p>
+        <Field label="Your name">
+          <input className="input" value={acct.name} onChange={(e) => setAcct({ ...acct, name: e.target.value })} autoComplete="name" />
+        </Field>
+        <Field label="Gym name">
+          <input required className="input" value={acct.gym} onChange={(e) => setAcct({ ...acct, gym: e.target.value })} placeholder="Shakti Fitness" />
+        </Field>
+        <Field label="City">
+          <input className="input" value={acct.city} onChange={(e) => setAcct({ ...acct, city: e.target.value })} />
+        </Field>
+        <Field label="Email">
+          <input required type="email" className="input" value={acct.email} onChange={(e) => setAcct({ ...acct, email: e.target.value })} autoComplete="email" />
+        </Field>
+        <Field label="Password (8 or more characters)">
+          <Password value={acct.password} onChange={(v) => setAcct({ ...acct, password: v })} auto="new-password" min={8} />
+        </Field>
+        {err && (
+          <Err>
+            {err} {err.includes("already has a gym") && <Link href="/login" className="underline">Sign in</Link>}
+          </Err>
+        )}
+        <button type="submit" className="btn btn-primary btn-lg w-full sm:w-auto" disabled={busy}>
+          {busy ? "Creating your gym..." : "Create my gym (free)"}
+        </button>
+        <p className="text-[15px]">
+          Already have a gym?{" "}
+          <Link href="/login" className="font-semibold underline">
+            Sign in
+          </Link>
+        </p>
+      </form>
     );
 
   return (
-    <Paper title={first ? `Set up ${me.org?.name ?? "your gym"}` : `Add a branch to ${me.org?.name}`} sub="Four steps on one page. Everything can be changed later in Settings.">
+    <div className="flex flex-col gap-4">
+      <h1 className="t-display text-[30px] leading-tight">{first ? `Set up ${me.org?.name ?? "your gym"}` : `Add a branch to ${me.org?.name}`}</h1>
+      <p className="text-[15px]">Everything here can be changed later in Settings.</p>
       {!first && (
-        <p className="t-hand text-[16px] leading-8" style={{ color: "var(--carbon)" }}>
+        <p className="text-[15px]">
           Your branches:{" "}
           {me.branches!.map((b) => (
-            <Link key={b.id} href={`/g/${b.id}/owner`} className="mr-3 underline">
+            <Link key={b.id} href={`/g/${b.id}/report`} className="mr-3 font-semibold underline">
               {b.name}
             </Link>
           ))}
-          <Link href="/o" className="underline">
-            all branches
-          </Link>
         </p>
       )}
-      <ol className="mt-2">
-        <li>
-          <h2 className="t-teko text-[22px] leading-8" style={{ color: "var(--margin-red)" }}>
-            1 · Branch
-          </h2>
-          <div className="grid gap-x-4 sm:grid-cols-2">
-            <Field label="Branch name">
-              <input className="field !font-[family-name:var(--font-sans)]" value={branch.name} onChange={(e) => setBranch({ ...branch, name: e.target.value })} />
+      <fieldset className="panel-flat grid gap-3 p-4 sm:grid-cols-2">
+        <legend className="px-1 text-[16px] font-bold">Branch</legend>
+        <Field label="Branch name">
+          <input className="input" value={branch.name} onChange={(e) => setBranch({ ...branch, name: e.target.value })} />
+        </Field>
+        <Field label="City or area">
+          <input className="input" value={branch.city} onChange={(e) => setBranch({ ...branch, city: e.target.value })} />
+        </Field>
+      </fieldset>
+      <fieldset className="panel-flat grid gap-3 p-4 sm:grid-cols-2">
+        <legend className="px-1 text-[16px] font-bold">Where UPI money goes</legend>
+        <Field label="UPI ID on the payment QR" hint="A business UPI ID works best; some UPI apps limit link payments to personal IDs.">
+          <input className="input" value={branch.vpa} onChange={(e) => setBranch({ ...branch, vpa: e.target.value.trim() })} placeholder="yourgym@okaxis" />
+        </Field>
+        <Field label="Name on the QR">
+          <input className="input" value={branch.payeeName} onChange={(e) => setBranch({ ...branch, payeeName: e.target.value })} />
+        </Field>
+        <Field label="GSTIN (optional, printed on receipts)">
+          <input className="input" value={branch.gstin} onChange={(e) => setBranch({ ...branch, gstin: e.target.value.toUpperCase() })} />
+        </Field>
+      </fieldset>
+      {first && (
+        <fieldset className="panel-flat grid grid-cols-2 gap-3 p-4 sm:grid-cols-3">
+          <legend className="px-1 text-[16px] font-bold">Plans and prices (₹)</legend>
+          {DEFAULT_PLANS.map((p) => (
+            <Field key={p.k} label={p.nameEn}>
+              <input inputMode="numeric" className="input t-mono" value={prices[p.k]} onChange={(e) => setPrices({ ...prices, [p.k]: e.target.value.replace(/\D/g, "") })} />
             </Field>
-            <Field label="City / area">
-              <input className="field !font-[family-name:var(--font-sans)]" value={branch.city} onChange={(e) => setBranch({ ...branch, city: e.target.value })} />
-            </Field>
-          </div>
-        </li>
-        <li>
-          <h2 className="t-teko text-[22px] leading-8" style={{ color: "var(--margin-red)" }}>
-            2 · Where UPI money goes
-          </h2>
-          <div className="grid gap-x-4 sm:grid-cols-2">
-            <Field label="UPI ID shown on the payment QR">
-              <input className="field" value={branch.vpa} onChange={(e) => setBranch({ ...branch, vpa: e.target.value.trim() })} placeholder="yourgym@okaxis" />
-            </Field>
-            <Field label="Name on the QR">
-              <input className="field !font-[family-name:var(--font-sans)]" value={branch.payeeName} onChange={(e) => setBranch({ ...branch, payeeName: e.target.value })} />
-            </Field>
-            <Field label="GSTIN (optional, printed on receipts)">
-              <input className="field" value={branch.gstin} onChange={(e) => setBranch({ ...branch, gstin: e.target.value.toUpperCase() })} />
-            </Field>
-          </div>
-          <p className="t-hand text-[15px] leading-8" style={{ color: "var(--carbon)" }}>
-            Use a business or merchant UPI ID if you can. Some UPI apps warn about, or limit, payments opened from a link to a personal ID. The desk QR, scanned at the counter, is the main way to pay.
-          </p>
-        </li>
-        {first && (
-          <li>
-            <h2 className="t-teko text-[22px] leading-8" style={{ color: "var(--margin-red)" }}>
-              3 · Plans and prices (₹)
-            </h2>
-            <div className="grid grid-cols-2 gap-x-4 sm:grid-cols-3">
-              {DEFAULT_PLANS.map((p) => (
-                <Field key={p.k} label={p.nameEn}>
-                  <span className="flex items-center gap-2">
-                    <Plate state={p.plate} size={26} label="" />
-                    <input inputMode="numeric" className="field" value={prices[p.k]} onChange={(e) => setPrices({ ...prices, [p.k]: e.target.value.replace(/\D/g, "") })} />
-                  </span>
-                </Field>
-              ))}
-              <Field label="PT add-on, 12 sessions">
-                <input inputMode="numeric" className="field" value={prices.pt} onChange={(e) => setPrices({ ...prices, pt: e.target.value.replace(/\D/g, "") })} />
-              </Field>
-              <Field label="Joining fee (0 for none)">
-                <input inputMode="numeric" className="field" value={prices.join} onChange={(e) => setPrices({ ...prices, join: e.target.value.replace(/\D/g, "") })} />
-              </Field>
-            </div>
-          </li>
-        )}
-        <li>
-          <h2 className="t-teko text-[22px] leading-8" style={{ color: "var(--margin-red)" }}>
-            {first ? "4" : "3"} · Staff and their PINs
-          </h2>
-          {first && (
-            <Field label="Your own owner PIN (4 digits)">
-              <input type="password" inputMode="numeric" maxLength={4} className="field !w-32" value={ownerPin} onChange={(e) => setOwnerPin(e.target.value.replace(/\D/g, "").slice(0, 4))} />
-            </Field>
-          )}
-          {staff.map((s, i) => (
-            <div key={i} className="grid grid-cols-[1fr_110px_90px] gap-3">
-              <Field label="Name">
-                <input className="field !font-[family-name:var(--font-sans)]" value={s.name} onChange={(e) => setStaff(staff.map((x, k) => (k === i ? { ...x, name: e.target.value } : x)))} />
-              </Field>
-              <Field label="Role">
-                <select className="field" value={s.role} onChange={(e) => setStaff(staff.map((x, k) => (k === i ? { ...x, role: e.target.value } : x)))}>
-                  <option value="desk">Desk</option>
-                  <option value="manager">Manager</option>
-                  <option value="trainer">Trainer</option>
-                </select>
-              </Field>
-              <Field label="PIN">
-                <input type="password" inputMode="numeric" maxLength={4} className="field" value={s.pin} onChange={(e) => setStaff(staff.map((x, k) => (k === i ? { ...x, pin: e.target.value.replace(/\D/g, "").slice(0, 4) } : x)))} />
-              </Field>
-            </div>
           ))}
-          <button type="button" className="btn-ink" onClick={() => setStaff([...staff, { name: "", role: "desk", pin: "" }])}>
-            Add a person
-          </button>
-        </li>
-      </ol>
-      {err && <p className="t-hand mt-3 text-[16px] leading-8" style={{ color: "var(--margin-red)" }}>{err}</p>}
-      <div className="mt-6 flex gap-3">
-        <button type="button" className="btn-brass" disabled={busy} onClick={() => void setup()}>
-          {busy ? "Writing it down" : first ? "Open the register" : "Add the branch"}
+          <Field label="Personal training, 12 sessions">
+            <input inputMode="numeric" className="input t-mono" value={prices.pt} onChange={(e) => setPrices({ ...prices, pt: e.target.value.replace(/\D/g, "") })} />
+          </Field>
+          <Field label="Joining fee (0 for none)">
+            <input inputMode="numeric" className="input t-mono" value={prices.join} onChange={(e) => setPrices({ ...prices, join: e.target.value.replace(/\D/g, "") })} />
+          </Field>
+        </fieldset>
+      )}
+      <fieldset className="panel-flat flex flex-col gap-3 p-4">
+        <legend className="px-1 text-[16px] font-bold">Staff and their PINs</legend>
+        {first && (
+          <Field label="Your own owner PIN (4 digits)">
+            <input type="password" inputMode="numeric" maxLength={4} className="input t-mono !w-32" value={ownerPin} onChange={(e) => setOwnerPin(e.target.value.replace(/\D/g, "").slice(0, 4))} />
+          </Field>
+        )}
+        {staff.map((s, i) => (
+          <div key={i} className="grid gap-3 sm:grid-cols-[1fr_150px_110px]">
+            <Field label="Name">
+              <input className="input" value={s.name} onChange={(e) => setStaff(staff.map((x, k) => (k === i ? { ...x, name: e.target.value } : x)))} />
+            </Field>
+            <Field label="Job">
+              <select className="input" value={s.role} onChange={(e) => setStaff(staff.map((x, k) => (k === i ? { ...x, role: e.target.value } : x)))}>
+                <option value="desk">Front desk</option>
+                <option value="manager">Manager</option>
+                <option value="trainer">Trainer</option>
+              </select>
+            </Field>
+            <Field label="PIN">
+              <input type="password" inputMode="numeric" maxLength={4} className="input t-mono" value={s.pin} onChange={(e) => setStaff(staff.map((x, k) => (k === i ? { ...x, pin: e.target.value.replace(/\D/g, "").slice(0, 4) } : x)))} />
+            </Field>
+          </div>
+        ))}
+        <button type="button" className="btn self-start" onClick={() => setStaff([...staff, { name: "", role: "desk", pin: "" }])}>
+          <Icon name="plus" size={18} /> Add a person
         </button>
-        <button type="button" className="btn-ink" onClick={() => router.push("/")}>
+      </fieldset>
+      {err && <Err>{err}</Err>}
+      <div className="flex flex-wrap gap-3">
+        <button type="button" className="btn btn-primary btn-lg w-full sm:w-auto" disabled={busy} onClick={() => void setup()}>
+          {busy ? "Setting up..." : first ? "Open the front desk" : "Add the branch"}
+        </button>
+        <button type="button" className="btn btn-lg w-full sm:w-auto" onClick={() => router.push("/")}>
           Cancel
         </button>
       </div>
-    </Paper>
+    </div>
   );
 }
 
@@ -271,48 +249,39 @@ function PairPanel({ branchId }: { branchId: string }) {
     else setCode(r.code);
   };
   return (
-    <Paper title="The register is open" sub="Pair the desk tablet, bring in your sheet, then raise the shutter.">
-      <ol className="mt-2 text-[15px] leading-8" style={{ color: "var(--text-on-paper)" }}>
-        <li>
-          <b className="t-teko text-[19px]">Pair the desk tablet.</b>{" "}
-          <button type="button" className="btn-ink" onClick={() => void make()}>
+    <div className="flex flex-col gap-4">
+      <h1 className="t-display text-[30px] leading-tight">Your front desk is ready</h1>
+      <ol className="flex flex-col gap-3">
+        <li className="panel-flat p-4">
+          <b>1. Import your members from Excel.</b>{" "}
+          <Link className="btn btn-sm ml-1" href={`/g/${branchId}/import`}>
+            Import members
+          </Link>
+        </li>
+        <li className="panel-flat p-4">
+          <b>2. Pair the desk computer</b> (the one your staff use).
+          <button type="button" className="btn btn-sm ml-2" onClick={() => void make()}>
             Show pairing QR (10 minutes)
           </button>
           {code && (
-            <div className="my-3 flex flex-wrap items-center gap-4">
-              <Qr text={`${origin()}/pair/${code}`} size={180} label="Pairing QR" />
-              <span className="t-mono text-[13px]">
-                or open {origin()}/pair/{code} on the tablet
+            <div className="mt-3 flex flex-wrap items-center gap-4">
+              <Qr text={`${origin()}/pair/${code}`} size={170} label="Pairing QR" light="#FFFFFF" dark="#1B1A2E" />
+              <span className="t-mono break-all text-[13px]">
+                or open {origin()}/pair/{code} on that computer
               </span>
             </div>
           )}
-          {err && <span className="t-hand text-[15px]" style={{ color: "var(--margin-red)" }}>{err}</span>}
+          {err && <Err>{err}</Err>}
         </li>
-        <li>
-          <b className="t-teko text-[19px]">Bring in your register.</b>{" "}
-          <Link className="underline" href={`/g/${branchId}/import`}>
-            Bahi import
+        <li className="panel-flat p-4">
+          <b>3. Open the front desk.</b>{" "}
+          <Link className="btn btn-sm btn-primary ml-1" href={`/g/${branchId}/desk`}>
+            Open the front desk
           </Link>
-        </li>
-        <li>
-          <b className="t-teko text-[19px]">Raise the shutter.</b>{" "}
-          <Link className="underline" href={`/g/${branchId}/desk`}>
-            Open the desk
-          </Link>{" "}
-          (your owner PIN works on this phone too)
-        </li>
-        <li>
-          <b className="t-teko text-[19px]">Tomorrow at 6 am.</b>{" "}
-          <Link className="underline" href={`/g/${branchId}/owner`}>
-            Your slate
-          </Link>{" "}
-          ·{" "}
-          <Link className="underline" href={`/g/${branchId}/settings`}>
-            Settings
-          </Link>
+          <span className="mt-1 block text-[14px] text-[var(--muted-ink)]">Your owner PIN works on this phone too. Tomorrow at 6 am your report is under Owner report.</span>
         </li>
       </ol>
-    </Paper>
+    </div>
   );
 }
 
@@ -321,57 +290,80 @@ export function Login() {
   const sp = useSearchParams();
   const [f, setF] = useState({ email: "", password: "" });
   const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
   const go = async () => {
+    setBusy(true);
     const r = await post("/api/auth/login", f);
+    setBusy(false);
     if (r.error) return setErr(r.error);
     const next = sp.get("next");
     if (next && next.startsWith("/")) return router.push(next);
     const me = await (await fetch("/api/auth/me", { cache: "no-store" })).json();
-    router.push(me.branches?.[0] ? `/g/${me.branches[0].id}/owner` : "/start");
+    router.push(me.branches?.[0] ? `/g/${me.branches[0].id}/report` : "/start");
   };
   return (
-    <Paper title="Owner sign in">
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          void go();
-        }}
-      >
-        <Field label="Email">
-          <input type="email" required className="field" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} autoComplete="email" />
-        </Field>
-        <Field label="Password">
-          <input type="password" required className="field" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} autoComplete="current-password" />
-        </Field>
-        {err && <p className="t-hand text-[16px] leading-8" style={{ color: "var(--margin-red)" }}>{err}</p>}
-        <div className="mt-4 flex gap-3">
-          <button className="btn-brass" type="submit">
-            Sign in
-          </button>
-          <Link className="btn-ink" href="/start">
-            Open a new gym
-          </Link>
-        </div>
-      </form>
-    </Paper>
+    <form
+      className="flex flex-col gap-3"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void go();
+      }}
+    >
+      <h1 className="t-display text-[32px] leading-tight">Sign in</h1>
+      <p className="text-[16px]">For gym owners. Your report and your desks are one tap away.</p>
+      <Field label="Email">
+        <input type="email" required className="input" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} autoComplete="email" />
+      </Field>
+      <Field label="Password">
+        <Password value={f.password} onChange={(v) => setF({ ...f, password: v })} auto="current-password" />
+      </Field>
+      {err && (
+        <Err>
+          {err.includes("does not match") ? (
+            <>
+              That email and password do not match. Check them, or{" "}
+              <Link className="underline" href="/start">
+                start for my gym
+              </Link>{" "}
+              if this email is new.
+            </>
+          ) : (
+            err
+          )}
+        </Err>
+      )}
+      <button className="btn btn-primary btn-lg w-full sm:w-auto" type="submit" disabled={busy}>
+        {busy ? "Signing in..." : "Sign in"}
+      </button>
+      <p className="text-[15px]">
+        New here?{" "}
+        <Link className="font-semibold underline" href="/start">
+          Start for my gym
+        </Link>
+      </p>
+      <p className="rounded-xl border-2 border-dashed border-[var(--ink)] bg-[var(--paper)] p-3 text-[14px]">Desk staff? Sign in with your 4-digit PIN on a desk computer your owner has paired.</p>
+    </form>
   );
 }
 
 export function PairDevice({ code }: { code: string }) {
   const router = useRouter();
-  const [msg, setMsg] = useState("Pairing this tablet with the branch...");
+  const [msg, setMsg] = useState("Pairing this computer with the branch...");
   useEffect(() => {
     void post<{ branchId: string }>("/api/pair", { code, label: navigator.userAgent.includes("Android") ? "Android desk" : "Desk" }).then((r) => {
       if (r.error) setMsg(r.error);
       else {
-        setMsg("Paired. Staff now unlock this desk with their PIN.");
+        setMsg("Paired. Staff now open this desk with their PIN.");
         setTimeout(() => router.push(`/g/${r.branchId}/desk`), 900);
       }
     });
   }, [code, router]);
   return (
-    <div className="floor grid min-h-dvh place-items-center p-6 text-center">
-      <p className="t-hand text-[22px]">{msg}</p>
+    <div className="grid min-h-dvh place-items-center bg-[var(--cream)] p-6 text-center">
+      <div className="flex flex-col items-center gap-3">
+        <KbMark size={48} />
+        <p className="text-[20px] font-semibold">{msg}</p>
+      </div>
     </div>
   );
 }
@@ -397,32 +389,59 @@ export function AllBranches({ demo }: { demo?: boolean }) {
     })();
   }, [demo]);
   return (
-    <div className="ledger-plain min-h-dvh px-3 py-6" data-theme="light">
-      <div className="mx-auto max-w-[1000px]">
-        <h1 className="t-stencil text-[36px]" style={{ color: "var(--ink)" }}>
-          Every branch, this morning
-        </h1>
-        {demo && <span className="steel-tag">Demo gym, made-up members</span>}
+    <div className="min-h-dvh bg-[var(--cream)]">
+      <header className="on-dark border-b-2 border-[var(--ink)] bg-[var(--indigo)] text-[var(--cream)]">
+        <div className="mx-auto flex h-14 max-w-[1100px] items-center gap-3 px-4">
+          <Link href={demo ? "/demo/desk" : "/"} className="flex items-center gap-2">
+            <KbMark size={26} onDark />
+            <span className="t-sign text-[18px]">KHATABAR</span>
+          </Link>
+          <Link href={demo ? "/demo/report" : "/"} className="btn btn-ondark btn-sm ml-auto">
+            <Icon name="back" size={16} /> Back
+          </Link>
+        </div>
+      </header>
+      {demo && <div className="border-b-2 border-[var(--ink)] bg-[var(--marigold)] px-4 py-2 text-[14px] font-semibold">Demo gym, made-up members. Nothing here is real.</div>}
+      <main className="mx-auto max-w-[1100px] px-4 py-6">
+        <h1 className="t-display text-[30px]">All branches, this morning</h1>
+        <p className="text-[15px] text-[var(--muted-ink)]">Each branch&apos;s owner report side by side. Tap one to open it.</p>
         {err && (
-          <p className="t-hand mt-3 text-[18px]">
+          <p className="mt-3 text-[16px]">
             {err}{" "}
-            <Link className="underline" href="/login?next=/o">
+            <Link className="font-semibold underline" href="/login?next=/o">
               Sign in
             </Link>
           </p>
         )}
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {(snaps ?? []).map((s) => (
-            <MiniSlate key={s.branch.id} snap={s} href={demo ? `/demo/owner${s.branch.code === "LV" ? "?b=LV" : ""}` : `/g/${s.branch.id}/owner`} />
-          ))}
-          {!snaps && !err && [0, 1].map((i) => <div key={i} className="skeleton h-[240px]" style={{ background: "#2b2f2c" }} />)}
+          {(snaps ?? []).map((s) => {
+            const sl = computeSlate(s);
+            return (
+              <a key={s.branch.id} href={demo ? `/demo/report${s.branch.code === "LV" ? "?b=LV" : ""}` : `/g/${s.branch.id}/report`} className="slate on-dark block p-4">
+                <div className="t-display text-[24px] text-[var(--marigold)]">{s.branch.name}</div>
+                <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[15px]">
+                  <dt>Ending today</dt>
+                  <dd className="slate-num text-[20px]">{sl.endingToday.length}</dd>
+                  <dt>Owes money</dt>
+                  <dd className="slate-num text-[20px]">{rupees(sl.dues.total)}</dd>
+                  <dt>Yesterday</dt>
+                  <dd className="slate-num text-[20px]">{rupees(sl.yesterday.total)}</dd>
+                  <dt>Waiting for money</dt>
+                  <dd className="slate-num text-[20px]">{rupees(sl.pendingUpi.total)}</dd>
+                  <dt>Checked in today</dt>
+                  <dd className="slate-num text-[20px]">{sl.checkinsToday}</dd>
+                </dl>
+              </a>
+            );
+          })}
+          {!snaps && !err && [0, 1].map((i) => <div key={i} className="skeleton h-[220px]" />)}
         </div>
         {!demo && snaps && (
-          <Link href="/start" className="btn-ink mt-6">
-            Add a branch
+          <Link href="/start" className="btn mt-6">
+            <Icon name="plus" size={18} /> Add a branch
           </Link>
         )}
-      </div>
+      </main>
     </div>
   );
 }

@@ -1,35 +1,35 @@
 "use client";
-// Three effect tiers on <html data-fx>: full (default), lite (slow devices: SVG
-// filters off, springs kept), calm (reduced motion or Shift+M: 150 ms crossfades).
+// Three motion tiers on <html data-fx>: full (default), lite (slow phones: no parallax, no petals,
+// no idle loops except blinks) and calm (reduced motion or the "Less motion" switch: final poses,
+// 150 ms crossfades). The tier is set before first paint by the inline script in app/layout.tsx;
+// this module keeps it in sync and watches the frame time on devices that started on full.
 import { useSyncExternalStore } from "react";
-import { lsGet, lsSet } from "./idb";
+import { lsSet } from "./idb";
 
 export type Fx = "full" | "lite" | "calm";
 let tier: Fx = "full";
 let forcedLite = false;
+let booted = false;
 const subs = new Set<() => void>();
+
+function read(): Fx {
+  if (typeof document === "undefined") return "full";
+  const v = document.documentElement.getAttribute("data-fx");
+  return v === "calm" || v === "lite" ? v : "full";
+}
 
 function apply() {
   const t = forcedLite && tier === "full" ? "lite" : tier;
-  document.documentElement.dataset.fx = t;
+  document.documentElement.setAttribute("data-fx", t);
   subs.forEach((f) => f());
 }
 
 export function bootFx() {
-  if (typeof window === "undefined") return;
-  const saved = lsGet("kb_fx");
-  const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-  if (saved === "calm" || (saved !== "full" && reduce)) {
-    tier = "calm";
-    return apply();
-  }
-  const nav = navigator as Navigator & { deviceMemory?: number };
-  if ((nav.hardwareConcurrency ?? 8) <= 4 || (nav.deviceMemory ?? 8) <= 4) {
-    tier = "lite";
-    return apply();
-  }
-  apply();
-  // median frame time over the first 60 frames
+  if (typeof window === "undefined" || booted) return;
+  booted = true;
+  tier = read();
+  if (tier !== "full") return apply();
+  // median frame time over the first 60 frames: a phone that cannot keep up drops to lite
   const times: number[] = [];
   let last = performance.now();
   const tick = (t: number) => {
@@ -47,13 +47,19 @@ export function bootFx() {
   requestAnimationFrame(tick);
 }
 
-export function toggleCalm() {
-  tier = tier === "calm" ? "full" : "calm";
-  lsSet("kb_fx", tier === "calm" ? "calm" : "full");
+export function setCalm(on: boolean) {
+  if (!booted) tier = read();
+  tier = on ? "calm" : "full";
+  lsSet("kb_fx", on ? "calm" : "full");
   apply();
 }
 
-/** Queue Mode forces lite while it is on. */
+export function toggleCalm() {
+  if (!booted) tier = read();
+  setCalm(tier !== "calm");
+}
+
+/** Rush hour mode forces lite while it is on. */
 export function forceLite(on: boolean) {
   forcedLite = on;
   apply();
@@ -65,7 +71,7 @@ export function useFx(): Fx {
       subs.add(f);
       return () => subs.delete(f);
     },
-    () => (forcedLite && tier === "full" ? "lite" : tier),
+    () => (forcedLite && tier === "full" ? "lite" : booted ? tier : read()),
     () => "full",
   );
 }

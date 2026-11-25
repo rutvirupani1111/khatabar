@@ -19,6 +19,8 @@ export interface GymCtx {
   fx: Fx;
   calm: boolean;
   today: string;
+  /** true inside the home page's scenes: no WhatsApp, no UPI app, no navigation away */
+  street: boolean;
 }
 
 const Ctx = createContext<GymCtx | null>(null);
@@ -52,20 +54,22 @@ function useToday() {
   return t;
 }
 
-export function GymProvider({ repo, mode, base, children }: { repo: () => Repo; mode: "demo" | "live"; base: string; children: ReactNode }) {
-  const [store] = useState(() => new Store(repo()));
+export function GymProvider({ repo, store: given, mode, base, street = false, children }: { repo?: () => Repo; store?: Store; mode: "demo" | "live"; base: string; street?: boolean; children: ReactNode }) {
+  const [store] = useState(() => given ?? new Store(repo!()));
   const [lang, setLangS] = useState<Lang>("en");
   const fx = useFx();
   const today = useToday();
   useEffect(() => {
     void store.init();
-    const saved = lsGet("kb_lang");
-    if (saved === "hi") setLangS("hi");
-    return () => store.dispose();
-  }, [store]);
+    if (!street && lsGet("kb_lang") === "hi") setLangS("hi");
+    // a shared store outlives this screen; only a store made here is shut down with it
+    return () => {
+      if (!given) store.dispose();
+    };
+  }, [store, given, street]);
   useEffect(() => {
-    document.documentElement.lang = lang;
-  }, [lang]);
+    if (!street) document.documentElement.lang = lang;
+  }, [lang, street]);
   const value = useMemo<GymCtx>(
     () => ({
       store,
@@ -74,14 +78,18 @@ export function GymProvider({ repo, mode, base, children }: { repo: () => Repo; 
       lang,
       setLang: (l) => {
         setLangS(l);
-        lsSet("kb_lang", l);
+        if (!street) {
+          lsSet("kb_lang", l);
+          document.documentElement.setAttribute("data-lang", l);
+        }
       },
       t: lang === "hi" ? hi : en,
       fx,
       calm: fx === "calm",
       today,
+      street,
     }),
-    [store, mode, base, lang, fx, today],
+    [store, mode, base, lang, fx, today, street],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

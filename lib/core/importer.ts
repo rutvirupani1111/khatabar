@@ -1,4 +1,4 @@
-// Bahi Import: reads the gym's own sheet, with its own spellings ("naam",
+// Import members from Excel: reads the gym's own sheet, with its own spellings ("naam",
 // "mob no", "DOJ", "valid till"), Indian dates, and messy phone numbers.
 import { addDays, diffDays, todayIST, ymd } from "./dates";
 import { cleanPhone, toPaise } from "./money";

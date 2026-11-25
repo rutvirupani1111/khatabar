@@ -21,6 +21,8 @@ export interface Note {
 export interface Repo {
   kind: "demo" | "live" | "member" | "member-demo";
   cacheKey: string;
+  /** false: nothing is read from or written to IndexedDB (the home page's street demo) */
+  persist?: boolean;
   load(): Promise<{ snap: Snapshot; key: string | null; actor: OpActor; vapid?: never }>;
   send?(ops: Op[]): Promise<{ id: string; ok: boolean; muts?: Mutation[]; error?: string; note?: string }[]>;
 }
@@ -50,9 +52,18 @@ export class Store {
   private listeners = new Set<() => void>();
   private flushing = false;
   private timer: ReturnType<typeof setInterval> | null = null;
+  private started: Promise<void> | null = null;
+  private resets = new Set<() => void>();
   checkinKey: string | null = null;
 
   constructor(public repo: Repo) {}
+
+  private get keep() {
+    return this.repo.persist !== false;
+  }
+  private save(k: string, v: unknown) {
+    if (this.keep) void idbSet(k, v);
+  }
 
   subscribe = (fn: () => void) => {
     this.listeners.add(fn);
@@ -64,17 +75,37 @@ export class Store {
     this.listeners.forEach((f) => f());
   }
 
-  async init() {
+  /** Called after resetDemo, so pictures and panels can return to their first pose. */
+  onReset(fn: () => void) {
+    this.resets.add(fn);
+    return () => {
+      this.resets.delete(fn);
+    };
+  }
+
+  /** Safe to call from several places: the first call does the work, the rest wait for it. */
+  init() {
+    if (!this.started) this.started = this.start();
+    return this.started;
+  }
+
+  /** The live desk calls this again after a PIN unlocks it. */
+  reinit() {
+    this.started = this.start();
+    return this.started;
+  }
+
+  private async start() {
     const ck = this.repo.cacheKey;
-    const cachedQueue = (await idbGet<Queued[]>(`${ck}:queue`)) ?? [];
+    const cachedQueue = (this.keep ? await idbGet<Queued[]>(`${ck}:queue`) : undefined) ?? [];
     try {
       const { snap, key, actor } = await this.repo.load();
       this.base = snap;
       this.checkinKey = key;
-      this.set({ actor });
-      if (this.repo.kind === "live") void idbSet(`${ck}:base`, snap);
+      this.set({ actor, status: "loading", error: null });
+      if (this.repo.kind === "live") this.save(`${ck}:base`, snap);
     } catch (e) {
-      const cached = this.repo.kind === "live" ? await idbGet<Snapshot>(`${ck}:base`) : undefined;
+      const cached = this.repo.kind === "live" && this.keep ? await idbGet<Snapshot>(`${ck}:base`) : undefined;
       if (!cached) {
         const msg = e instanceof Error ? e.message : "Could not load";
         this.set({ status: msg === "locked" ? "locked" : "error", error: msg });
@@ -95,6 +126,7 @@ export class Store {
 
   dispose() {
     if (this.timer) clearInterval(this.timer);
+    this.timer = null;
     window.removeEventListener("online", this.onOnline);
   }
 
@@ -132,8 +164,8 @@ export class Store {
 
   note(text: string, tone: Note["tone"] = "red") {
     const n = { id: uid(), text, tone, at: Date.now() };
-    this.set({ notes: [n, ...this.state.notes].slice(0, 6) });
-    setTimeout(() => this.set({ notes: this.state.notes.filter((x) => x.id !== n.id) }), 9000);
+    this.set({ notes: [n, ...this.state.notes].slice(0, 4) });
+    setTimeout(() => this.set({ notes: this.state.notes.filter((x) => x.id !== n.id) }), 6000);
   }
 
   /** Make a change: it shows at once, then syncs. */
@@ -147,14 +179,14 @@ export class Store {
       // demo: the browser is the whole database
       this.base = applyMutations(this.base, r.muts);
       this.set({ snap: applyMutations(cur, r.muts) });
-      void idbSet(`${this.repo.cacheKey}:base`, this.base);
+      this.save(`${this.repo.cacheKey}:base`, this.base);
       return { ok: true, note: r.note, opId: op.id };
     }
     const queue = [...this.state.queue, { op, rowIds: r.muts.map((m) => m.row.id) }];
     const unsynced = new Set(this.state.unsynced);
     r.muts.forEach((m) => unsynced.add(m.row.id));
     this.set({ snap: applyMutations(cur, r.muts), queue, unsynced });
-    void idbSet(`${this.repo.cacheKey}:queue`, queue);
+    this.save(`${this.repo.cacheKey}:queue`, queue);
     setTimeout(() => void this.flush(), 30);
     return { ok: true, note: r.note, opId: op.id };
   }
@@ -165,7 +197,7 @@ export class Store {
     const before = this.state.queue.length;
     this.set({ queue: this.state.queue.filter((q) => q.op.id !== opId) });
     if (this.state.queue.length === before) return false;
-    void idbSet(`${this.repo.cacheKey}:queue`, this.state.queue);
+    this.save(`${this.repo.cacheKey}:queue`, this.state.queue);
     this.recompute();
     return true;
   }
@@ -193,8 +225,8 @@ export class Store {
       }
       this.base = base;
       this.set({ queue: this.state.queue.filter((q) => !done.has(q.op.id)), online: true, lastSync: Date.now() });
-      void idbSet(`${this.repo.cacheKey}:queue`, this.state.queue);
-      void idbSet(`${this.repo.cacheKey}:base`, base);
+      this.save(`${this.repo.cacheKey}:queue`, this.state.queue);
+      this.save(`${this.repo.cacheKey}:base`, base);
       this.recompute();
     } catch {
       this.set({ online: false });
@@ -211,18 +243,21 @@ export class Store {
       this.base = snap;
       this.recompute();
       this.set({ online: true, lastSync: Date.now() });
-      if (this.repo.kind === "live") void idbSet(`${this.repo.cacheKey}:base`, snap);
+      if (this.repo.kind === "live") this.save(`${this.repo.cacheKey}:base`, snap);
     } catch {
       this.set({ online: false });
     }
   }
 
+  /** Demo only: drop the browser's copy and start again from the seed. */
   async resetDemo() {
-    await idbDel(`${this.repo.cacheKey}:base`);
-    const { snap } = await this.repo.load();
+    if (this.repo.kind === "live" || this.repo.kind === "member") return;
+    if (this.keep) await idbDel(`${this.repo.cacheKey}:base`);
+    const { snap, actor } = await this.repo.load();
     this.base = snap;
-    this.set({ queue: [] });
+    this.set({ queue: [], actor, notes: [] });
     this.recompute();
+    this.resets.forEach((f) => f());
   }
 }
 
@@ -243,7 +278,7 @@ export function demoRepo(code: "LP" | "LV", actor: OpActor = { staffId: "st-ravi
     cacheKey,
     async load() {
       // the seed version rides with the date, so a browser holding an older demo gets the new one
-      const today = `${todayIST()}|seed-v3`;
+      const today = `${todayIST()}|seed-v4`;
       const cached = await idbGet<Snapshot & { seededFor?: string }>(`${cacheKey}:base`);
       let snap: Snapshot;
       if (cached && cached.seededFor === today) snap = cached;

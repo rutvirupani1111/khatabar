@@ -1,39 +1,69 @@
 "use client";
-// A real gym's screens, backed by Neon through /api. Same components as the demo.
-import { Suspense } from "react";
+// A real gym's screens, backed by Neon through /api. Same components as the demo. A desk that is not
+// open yet asks for a staff PIN (on a paired computer) or the owner's sign in.
+import Link from "next/link";
+import { Suspense, useState } from "react";
 import { liveRepo } from "@/lib/client/store";
-import { Board } from "@/components/board/Board";
 import { Desk } from "@/components/desk/Desk";
 import { Door } from "@/components/desk/Door";
+import { FeesDue } from "@/components/fees/FeesDue";
+import { Freeze } from "@/components/freeze/Freeze";
 import { Importer } from "@/components/import/Importer";
-import { Owner } from "@/components/owner/Owner";
-import { Rack } from "@/components/rack/Rack";
+import { Report } from "@/components/report/Report";
 import { Settings } from "@/components/settings/Settings";
+import { KbMark } from "@/components/ui/Icon";
 import { Face, Poster } from "./Screens";
-import { GymProvider, useGymState } from "./Gym";
+import { GymProvider, useGym, useGymState } from "./Gym";
 
-function Gate({ children, base }: { children: React.ReactNode; base: string }) {
+function PinGate({ children, base, branchId }: { children: React.ReactNode; base: string; branchId: string }) {
   const status = useGymState((s) => s.status);
-  if (status === "locked")
-    return (
-      <div className="floor grid min-h-dvh place-items-center p-6 text-center">
-        <div>
-          <p className="t-stencil text-[36px]" style={{ color: "var(--brass)" }}>
-            Shutter is down
+  const { store } = useGym();
+  const [pin, setPin] = useState("");
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+  if (status !== "locked") return <>{children}</>;
+  const open = async () => {
+    setBusy(true);
+    setErr("");
+    const res = await fetch("/api/pin", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ branchId, pin }) });
+    const body = await res.json().catch(() => ({}));
+    setBusy(false);
+    if (!res.ok) return setErr(body.error ?? "That PIN did not match. Try again.");
+    await store.reinit();
+  };
+  return (
+    <div className="grid min-h-dvh place-items-center bg-[var(--cream)] p-6">
+      <form
+        className="panel flex w-full max-w-[420px] flex-col gap-3 p-6"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void open();
+        }}
+      >
+        <KbMark size={40} />
+        <h1 className="t-display text-[28px]">Open the front desk</h1>
+        <p className="text-[15px]">Type your 4-digit staff PIN. This works on a desk computer your owner has paired.</p>
+        <label>
+          <span className="label">Your PIN</span>
+          <input autoFocus type="password" inputMode="numeric" maxLength={4} className="input t-mono mt-1 text-[22px] tracking-[0.4em]" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))} />
+        </label>
+        {err && (
+          <p role="alert" className="rounded-lg bg-[#fde2ea] p-2 text-[14px] font-semibold text-[#9b0f3f]">
+            {err}
           </p>
-          <p className="t-hand mt-2 text-[18px]">Unlock the desk with a staff PIN, or sign in as the owner.</p>
-          <div className="mt-4 flex justify-center gap-2">
-            <a className="btn-brass" href={`${base}/desk`}>
-              Go to the desk
-            </a>
-            <a className="btn-iron" href={`/login?next=${encodeURIComponent(base)}`}>
-              Owner sign in
-            </a>
-          </div>
-        </div>
-      </div>
-    );
-  return <>{children}</>;
+        )}
+        <button type="submit" className="btn btn-primary btn-lg" disabled={pin.length !== 4 || busy}>
+          {busy ? "Opening..." : "Open the desk"}
+        </button>
+        <Link className="text-[15px] font-semibold underline" href={`/login?next=${encodeURIComponent(base + "/desk")}`}>
+          Owner? Sign in with email instead
+        </Link>
+        <Link className="text-[14px] underline" href="/">
+          Back to Khatabar home
+        </Link>
+      </form>
+    </div>
+  );
 }
 
 export function LiveRoot({ branchId, view }: { branchId: string; view: string }) {
@@ -41,11 +71,27 @@ export function LiveRoot({ branchId, view }: { branchId: string; view: string })
   if (view === "face") return <Face branchId={branchId} />;
   if (view === "poster") return <Poster branchId={branchId} />;
   const screen =
-    view === "rack" ? <Rack /> : view === "board" ? <Board /> : view === "owner" ? <Owner /> : view === "import" ? <Importer /> : view === "door" ? <Door /> : view === "settings" ? <Settings /> : <Desk />;
+    view === "fees" || view === "rack" ? (
+      <FeesDue />
+    ) : view === "freeze" || view === "board" ? (
+      <Freeze />
+    ) : view === "report" || view === "owner" ? (
+      <Report />
+    ) : view === "import" ? (
+      <Importer />
+    ) : view === "door" ? (
+      <Door />
+    ) : view === "settings" ? (
+      <Settings />
+    ) : (
+      <Desk />
+    );
   return (
     <Suspense>
       <GymProvider mode="live" base={base} repo={() => liveRepo(branchId)}>
-        {view === "desk" ? screen : <Gate base={base}>{screen}</Gate>}
+        <PinGate base={base} branchId={branchId}>
+          {screen}
+        </PinGate>
       </GymProvider>
     </Suspense>
   );
