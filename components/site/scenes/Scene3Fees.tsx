@@ -13,7 +13,7 @@ export function Scene3Fees() {
   return (
     <Scene
       c={c}
-      crop={{ p: [104, 160, 776, 640], m: [0, 150, 1440, 650] }}
+      crop={{ p: [104, 160, 776, 640], m: [0, 180, 1440, 590] }}
       ext={ext([
         ["#3E5BA9", 90],
         ["#FF6B4A", 180],

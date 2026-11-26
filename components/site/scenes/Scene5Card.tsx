@@ -13,7 +13,7 @@ export function Scene5Card() {
   return (
     <Scene
       c={c}
-      crop={{ p: [250, 330, 660, 480], m: [0, 200, 1440, 640] }}
+      crop={{ p: [250, 330, 660, 480], m: [0, 240, 1440, 590] }}
       ext={ext([
         ["#8ED6F5", 200],
         ["#B8E6F7", 300],

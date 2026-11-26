@@ -149,7 +149,10 @@ export function AppScreen({ screen, title, sentence, vignette, actions, children
                   How Khatabar works
                 </MenuItem>
               </Menu>
-              <LangButton />
+              {/* on phones हिंदी lives in the More sheet, so the gym name keeps its room */}
+              <span className="hidden md:inline-flex">
+                <LangButton />
+              </span>
               {mode === "live" ? (
                 <Menu label="Account" icon="user" open={overlay === "acct"} onOpen={() => setOverlay(overlay === "acct" ? null : "acct")} onClose={close} iconOnly>
                   <MenuItem href={`${base}/settings`} icon="settings">

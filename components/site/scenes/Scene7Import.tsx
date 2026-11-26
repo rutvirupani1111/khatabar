@@ -17,7 +17,7 @@ export function Scene7Import() {
   return (
     <Scene
       c={c}
-      crop={{ p: [380, 330, 540, 470], m: [0, 200, 1440, 640] }}
+      crop={{ p: [380, 330, 540, 470], m: [120, 360, 1100, 450] }}
       ext={ext([
         ["#FFE7B8", 628],
         ["#6A3820", 640],

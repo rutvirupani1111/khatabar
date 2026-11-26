@@ -13,7 +13,7 @@ export function Scene2Counter() {
   return (
     <Scene
       c={c}
-      crop={{ p: [104, 300, 816, 540], m: [40, 340, 1300, 460] }}
+      crop={{ p: [104, 300, 816, 540], m: [40, 300, 1300, 500] }}
       ext={ext([
         ["#FFE7B8", 628],
         ["#6A3820", 640],
