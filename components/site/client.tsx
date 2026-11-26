@@ -132,7 +132,10 @@ export function SiteNav() {
         </nav>
         <div className="ml-auto hidden items-center gap-3 lg:flex">
           <LangToggle cls="btn-ondark" />
-          <LessMotionSwitch cls="hidden xl:inline-flex" />
+          {/* .lm-switch sets its own display, so the breakpoint lives on a wrapper */}
+          <span className="hidden xl:inline-flex">
+            <LessMotionSwitch />
+          </span>
           <CtaLink href="/demo/desk" className="btn btn-primary">
             <Tx {...ACTIONS.demo} />
           </CtaLink>

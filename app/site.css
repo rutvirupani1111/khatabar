@@ -44,6 +44,10 @@
   color: var(--cream);
   border-bottom: 3px solid transparent;
 }
+.site-nav a.nl,
+.site-nav .btn {
+  white-space: nowrap;
+}
 .site-nav a.nl[aria-current="page"] {
   border-bottom-color: var(--marigold);
 }
@@ -382,11 +386,7 @@ main section[id] {
 .hero .scene-ui {
   padding-top: 0;
 }
-@media (max-width: 767px) {
-  .hero .scene-ui {
-    margin-top: -12px;
-  }
-}
+
 @media (min-width: 768px) and (max-width: 1279px) {
   .hero .hero-grid {
     display: grid;
@@ -1774,7 +1774,7 @@ html[data-js] .scene[data-on="0"] .card-reveal {
   height: 200px;
   overflow: hidden;
   border-bottom: 2px solid var(--ink);
-  background: #24286a;
+  background: #0f1030;
 }
 .night-art {
   position: absolute;
@@ -1802,9 +1802,11 @@ html[data-js] .scene[data-on="0"] .card-reveal {
     border-bottom: 0;
     border-left: 2px solid var(--ink);
   }
+  /* the panel is 46vw wide: draw the street about twice that so the whole shop fits across it */
   .night-art > svg {
     bottom: 0;
-    height: 100%;
+    width: 93vw;
+    height: auto;
   }
 }
 /* wide: the whole street behind the page, the notice on the night wall */
@@ -1815,6 +1817,33 @@ html[data-js] .scene[data-on="0"] .card-reveal {
     border-left: 0;
   }
   .night-art > svg {
+    left: 0;
+    width: 100%;
+    height: 100%;
+    aspect-ratio: auto;
+    transform: none;
+  }
+}
+
+/* ---------------------------------------------------------------- pricing and 404: the street wall */
+.page-art {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #b5452e;
+}
+/* phone: a band cropped on the right-hand props (the painted words, Moti, the plant) */
+.page-art > svg {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  height: 330px;
+  width: auto;
+  aspect-ratio: 1440 / 840;
+  transform: translateX(-72%);
+}
+@media (min-width: 768px) {
+  .page-art > svg {
     left: 0;
     width: 100%;
     height: 100%;

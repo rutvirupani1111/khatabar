@@ -1,7 +1,8 @@
 // Art for the other marketing pages: the shop at night (sign in, start), the brick wall with its
 // rate board (pricing) and Moti puzzled by a blank signboard (404).
+import type { ReactNode } from "react";
 import { Moti } from "@/components/world/characters/Moti";
-import { Dots, INK, Plane, Star } from "@/components/world/kit";
+import { Dots, INK, Star } from "@/components/world/kit";
 import { Pavement, Shopfront, Sky } from "@/components/world/places";
 
 export function NightShop() {
@@ -52,10 +53,12 @@ export function NightShop() {
   );
 }
 
-export function PricingWall() {
+/** A street wall drawn at the home page geometry. Phone: a band cropped on the right-hand props;
+ *  tablet and up: the whole wall behind the page, ground on the bottom edge. */
+function WallScene({ children, sign }: { children?: ReactNode; sign?: string }) {
   return (
-    <div className="relative h-full w-full overflow-hidden" aria-hidden>
-      <Plane>
+    <div className="page-art" aria-hidden>
+      <svg className="world" viewBox="0 0 1440 840" preserveAspectRatio="xMidYMax slice" focusable="false">
         <Sky
           bands={[
             [0, 120, "#3E5BA9"],
@@ -68,31 +71,41 @@ export function PricingWall() {
         <rect x="0" y="268" width="1440" height="512" fill="#B5452E" stroke={INK} strokeWidth="2.5" />
         <rect x="0" y="268" width="1440" height="512" fill="url(#kb-bricks)" opacity=".75" />
         <Dots x={0} y={268} w={1440} h={512} o={0.1} />
-        <text x="900" y="360" fontSize="40" fill="#FFF4DE" transform="rotate(-2 900 360)">
-          FREE FOR ONE BRANCH
-        </text>
+        {sign && (
+          <text x="900" y="360" fontSize="40" fill="#FFF4DE" transform="rotate(-2 900 360)">
+            {sign}
+          </text>
+        )}
         <Pavement />
-        <Moti kind="sit" x={1010} y={790} s={0.8} />
-        <use href="#pot-plant" x="1180" y="712" />
-      </Plane>
+        {children}
+      </svg>
     </div>
   );
 }
 
-export function LostSign() {
+export function PricingWall() {
   return (
-    <svg viewBox="0 0 520 340" className="h-auto w-full max-w-[520px]" aria-hidden>
-      <rect x="0" y="0" width="520" height="340" rx="20" fill="#FFE3A3" />
-      <rect x="0" y="280" width="520" height="60" fill="#D9C7A5" stroke={INK} strokeWidth="2.5" />
-      <path d="M80 280 V120 M330 280 V120" stroke={INK} strokeWidth="8" />
-      <rect x="50" y="60" width="310" height="110" rx="10" fill="#FFC21A" stroke={INK} strokeWidth="4" />
-      <Dots x={52} y={62} w={306} h={106} o={0.08} />
-      <text x="205" y="128" textAnchor="middle" fontSize="40" fill={INK} opacity=".25" style={{ fontFamily: "var(--font-sign)" }}>
-        ? ? ?
-      </text>
-      <g transform="translate(0 0)">
-        <Moti kind="sit" x={420} y={292} s={1.1} pose="tilt" />
+    <WallScene sign="FREE FOR ONE BRANCH">
+      <Moti kind="sit" x={1010} y={790} s={0.8} />
+      <use href="#pot-plant" x="1180" y="712" />
+    </WallScene>
+  );
+}
+
+/** 404: a blank marigold signboard on two posts, and Moti with his head tilted at it. */
+export function LostStreet() {
+  return (
+    <WallScene>
+      <g stroke={INK}>
+        <path d="M860 780 V470 M1120 780 V470" strokeWidth="10" />
+        <rect x="800" y="380" width="380" height="130" rx="12" fill="#FFC21A" strokeWidth="4" />
+        <Dots x={804} y={384} w={372} h={122} o={0.1} />
+        <text x="990" y="466" textAnchor="middle" fontSize="54" fill={INK} opacity=".22" stroke="none" style={{ fontFamily: "var(--font-sign)" }}>
+          ? ? ?
+        </text>
       </g>
-    </svg>
+      <Moti kind="sit" x={1250} y={790} s={0.95} pose="tilt" />
+      <use href="#pot-plant" x="700" y="712" />
+    </WallScene>
   );
 }
