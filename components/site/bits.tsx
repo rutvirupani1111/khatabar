@@ -61,10 +61,11 @@ export interface Crop {
 
 export function cropVars(c: Crop, vh = 840): CSSProperties {
   return {
-    "--px": c.p[0],
-    "--py": c.p[1],
-    "--pw": c.p[2],
-    "--ph": c.p[3],
+    // phone crop under its own names: an inline --px would beat the stylesheet's medium switch
+    "--ppx": c.p[0],
+    "--ppy": c.p[1],
+    "--ppw": c.p[2],
+    "--pph": c.p[3],
     "--mx": c.m[0],
     "--my": c.m[1],
     "--mw": c.m[2],

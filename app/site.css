@@ -126,6 +126,10 @@
 .scene {
   position: relative;
   isolation: isolate;
+  --px: var(--ppx);
+  --py: var(--ppy);
+  --pw: var(--ppw);
+  --ph: var(--pph);
 }
 .scene + .scene {
   margin-top: 48px;
@@ -388,6 +392,9 @@ main section[id] {
 }
 
 @media (min-width: 768px) and (max-width: 1279px) {
+  .hero .scene-ui {
+    display: block;
+  }
   .hero .hero-grid {
     display: grid;
     grid-template-columns: 46fr 54fr;
@@ -1840,7 +1847,7 @@ html[data-js] .scene[data-on="0"] .card-reveal {
   height: 330px;
   width: auto;
   aspect-ratio: 1440 / 840;
-  transform: translateX(-72%);
+  transform: translateX(-62%);
 }
 @media (min-width: 768px) {
   .page-art > svg {
