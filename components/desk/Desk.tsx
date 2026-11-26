@@ -827,7 +827,7 @@ function PresentSheet({ snap, onClose, onPick }: { snap: Snapshot; onClose: () =
         {list.map((c) => (
           <li key={c.id}>
             <button type="button" className="flex min-h-12 w-full items-center gap-3 border-b border-[var(--line)] text-left" onClick={() => onPick(c.memberId)}>
-              <span className="t-mono w-14 text-[14px]">{istClock(c.at)}</span>
+              <span className="t-mono w-[76px] shrink-0 text-[14px]">{istClock(c.at)}</span>
               <span className="flex-1 font-semibold">{names.get(c.memberId)?.name}</span>
               <span className="text-[13px] text-[var(--muted-ink)]">{c.onCredit ? "on credit" : c.method === "self_geo" ? "by location" : c.method === "door" ? "at the door" : c.method === "photo_check" ? "photo check" : "at the desk"}</span>
             </button>

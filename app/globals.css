@@ -146,6 +146,13 @@ body {
   outline-color: var(--marigold);
   box-shadow: none;
 }
+/* Headings take focus so a screen reader lands on a new step; they are not
+   controls, so they get no ring. */
+:is(h1, h2, h3)[tabindex="-1"]:focus,
+:is(h1, h2, h3)[tabindex="-1"]:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
 button {
   cursor: pointer;
 }

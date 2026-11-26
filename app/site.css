@@ -1319,17 +1319,28 @@ html[data-js] .scene[data-on="0"] .rv-slide {
   position: absolute;
   inset: 0;
   transform-origin: left center;
-  transform: perspective(900px) rotateY(75deg);
+  /* open = swung flat against the left wall and gone, so it never sits under the stop rail */
+  transform: perspective(900px) rotateY(82deg);
+  opacity: 0;
+}
+.scene[data-on="0"] .glass-door .door-leaf {
+  opacity: 1;
 }
 .scene[data-on="1"] .glass-door .door-leaf {
-  animation: kb-door 500ms var(--ease-io) 100ms both;
+  animation: kb-door 640ms var(--ease-io) 100ms both;
 }
 @keyframes kb-door {
   from {
     transform: perspective(900px) rotateY(0);
+    opacity: 1;
+  }
+  70% {
+    transform: perspective(900px) rotateY(72deg);
+    opacity: 1;
   }
   to {
-    transform: perspective(900px) rotateY(75deg);
+    transform: perspective(900px) rotateY(82deg);
+    opacity: 0;
   }
 }
 @media (max-width: 1279px) {

@@ -26,7 +26,9 @@ export function istHour(ms = Date.now()) {
 
 export function istClock(iso: string | number) {
   const p = istParts(typeof iso === "number" ? iso : Date.parse(iso));
-  return `${p.h}:${pad(p.min)}`;
+  // 12-hour with am/pm, the way a gym desk reads the time ("6:02 am", "12:12 am").
+  const h = p.h % 12 === 0 ? 12 : p.h % 12;
+  return `${h}:${pad(p.min)} ${p.h < 12 ? "am" : "pm"}`;
 }
 
 function toMs(date: string) {
