@@ -58,25 +58,27 @@ export function Scene7Import() {
             <Use id="books" x={260} y={718} s={0.8} />
           </Plane>
           <Plane cls="cam-walk">
-            <Ravi x={680} y={762} s={1.08} pose="carry-pile" actor="s7-ravi" />
-            <g stroke={INK} strokeWidth="2.5">
+            {/* Ravi carries the old registers in both forearms; the pile stops below his chin so
+                his face stays in view, and Moti rides on its far end */}
+            <Ravi x={690} y={762} s={1.08} pose="carry-pile" actor="s7-ravi" />
+            <g stroke={INK} strokeWidth="2.5" data-keepout="pile">
               {PILE.map((col, i) => (
-                <g key={col} transform={`rotate(${[-3, 2, -2, 3, -1][i]} 680 ${560 - i * 18})`}>
-                  <rect x="610" y={542 - i * 18} width="140" height="18" rx="3" fill={col} />
-                  <path d={`M736 ${545 - i * 18} v12 M742 ${545 - i * 18} v12`} stroke="#FFF4DE" strokeWidth="2" />
+                <g key={col} transform={`rotate(${[-2, 1.5, -1.5, 2, -1][i]} 700 ${541 - i * 14})`}>
+                  <rect x="625" y={534 - i * 14} width="150" height="14" rx="3" fill={col} />
+                  <path d={`M760 ${537 - i * 14} v8 M766 ${537 - i * 14} v8`} stroke="#FFF4DE" strokeWidth="2" />
                 </g>
               ))}
               <g className="riffle" style={{ "--d": "100ms" } as CSSProperties}>
-                <rect x="618" y="448" width="56" height="8" fill="#FFFBF2" strokeWidth="1.5" />
+                <rect x="632" y="470" width="50" height="6" fill="#FFFBF2" strokeWidth="1.5" />
               </g>
               <g className="riffle" style={{ "--d": "180ms" } as CSSProperties}>
-                <rect x="690" y="446" width="54" height="8" fill="#FFFBF2" strokeWidth="1.5" />
+                <rect x="660" y="467" width="48" height="6" fill="#FFFBF2" strokeWidth="1.5" />
               </g>
               <g className="riffle" style={{ "--d": "260ms" } as CSSProperties}>
-                <rect x="650" y="440" width="60" height="8" fill="#FFFBF2" strokeWidth="1.5" />
+                <rect x="644" y="464" width="52" height="6" fill="#FFFBF2" strokeWidth="1.5" />
               </g>
             </g>
-            <Moti kind="sit" x={684} y={448} s={0.5} actor="s7-moti" d={500} />
+            <Moti kind="sit" x={748} y={478} s={0.45} actor="s7-moti" d={500} />
             <g stroke={INK} strokeWidth="2.5">
               <rect x="780" y="600" width="104" height="14" rx="3" fill="#8A4B2A" />
               <path d="M792 614 V760 M872 614 V760" strokeWidth="6" />

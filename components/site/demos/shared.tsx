@@ -34,7 +34,7 @@ export function DemoFooter({ href, onDark }: { href?: string; onDark?: boolean }
   const { store } = useGym();
   const [busy, setBusy] = useState(false);
   return (
-    <div className={`flex flex-wrap items-center gap-x-4 px-1 ${onDark ? "demo-on-dark" : ""}`}>
+    <div className={`demo-foot flex flex-wrap items-center gap-x-4 ${onDark ? "demo-on-dark" : ""}`}>
       <button
         type="button"
         className="demo-reset"

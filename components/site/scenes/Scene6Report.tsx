@@ -52,7 +52,7 @@ export function Scene6Report() {
               <rect x="560" y="300" width="300" height="12" rx="6" fill="#FFF4DE" stroke={INK} strokeWidth="2.5" />
               <polygon className="tube-glow tube-flicker" points="560,312 860,312 1000,640 420,640" fill="#9BE7FF" opacity=".3" />
               <rect x="0" y="760" width="1440" height="80" fill="#2B2A40" stroke={INK} strokeWidth="2.5" />
-              <Sunita x={700} y={690} pose="count" actor="s6-sunita" say="" />
+              <Sunita x={714} y={690} pose="count" actor="s6-sunita" say="" />
               <Counter items={false} />
               <g stroke={INK} strokeWidth="2.5">
                 <rect x="600" y="560" width="200" height="40" fill="#9AA6B2" />
@@ -118,7 +118,6 @@ export function Scene6Report() {
       <div className="scene-ui">
         <CaptionCard
           c={c}
-          noLink
           timeLabel={
             <>
               <span className="t-night">10:30 PM</span>

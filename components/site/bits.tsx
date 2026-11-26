@@ -20,7 +20,7 @@ export function stopOf(n: number): Bi {
   return { en: ACTIONS.stopOf.en.replace("{n}", String(n)), hi: ACTIONS.stopOf.hi.replace("{n}", String(n)) };
 }
 
-export function CaptionCard({ c, timeLabel, noLink }: { c: SceneCopy; timeLabel?: ReactNode; noLink?: boolean }) {
+export function CaptionCard({ c, timeLabel, link }: { c: SceneCopy; timeLabel?: ReactNode; link?: boolean }) {
   return (
     <div className="caption">
       <div className="flex flex-wrap items-center gap-3">
@@ -40,7 +40,7 @@ export function CaptionCard({ c, timeLabel, noLink }: { c: SceneCopy; timeLabel?
       <p className="try-it mt-3">
         <T v={ACTIONS.tryIt} /> <T v={c.try} />
       </p>
-      {c.demo && !noLink && (
+      {c.demo && link && (
         <Link href={c.demo} className="mt-2 inline-flex min-h-11 items-center gap-1 text-[15px] font-semibold underline underline-offset-4">
           <T v={ACTIONS.fullDemo} />
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden>
@@ -85,15 +85,24 @@ export function ext(stops: [string, number][], vh = 840): string {
   return `linear-gradient(to bottom, ${parts.join(", ")})`;
 }
 
-export function Scene({ c, crop, ext: bg, art, side, demo, demoCls = "", cls = "", vh, style }: { c: SceneCopy; crop: Crop; ext: string; art: ReactNode; side?: ReactNode; demo: ReactNode; demoCls?: string; cls?: string; vh?: number; style?: CSSProperties }) {
+/**
+ * One scene: the art planes, then the caption column (caption card, plus an optional side card
+ * that follows it, never a fixed y it could collide with), then the demo. `deco` is decorative
+ * HTML laid over the art (scene 4's glass door), kept out of the caption column.
+ * The demo's own footer carries "Do this in the full demo desk", so the caption card does not repeat it.
+ */
+export function Scene({ c, crop, ext: bg, art, side, deco, demo, demoCls = "", cls = "", vh, style }: { c: SceneCopy; crop: Crop; ext: string; art: ReactNode; side?: ReactNode; deco?: ReactNode; demo: ReactNode; demoCls?: string; cls?: string; vh?: number; style?: CSSProperties }) {
   return (
     <section id={c.id} data-scene={c.n} aria-labelledby={`s${c.n}-title`} className={`scene wide cv ${cls}`} style={{ ...cropVars(crop, vh), "--ext": bg, ...style } as CSSProperties}>
       <div className="scene-art" aria-hidden>
         <div className="scene-crop">{art}</div>
       </div>
       <div className="scene-ui">
-        <CaptionCard c={c} />
-        {side}
+        {deco}
+        <div className="caption-col">
+          <CaptionCard c={c} />
+          {side}
+        </div>
         <div className={`demo-slot ${demoCls}`} data-demo-slot>
           {demo}
         </div>

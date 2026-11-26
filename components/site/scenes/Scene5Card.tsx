@@ -53,8 +53,8 @@ export function Scene5Card() {
               <path d="M640 720 h140 l20 -60 h-36 M660 720 v-40 h90" fill="none" stroke={INK} strokeWidth="5" opacity=".55" />
               <rect x="820" y="520" width="14" height="140" rx="6" fill="#9AA6B2" />
             </g>
-            <rect x="452" y="434" width="104" height="26" rx="4" fill={INK} />
-            <text x="504" y="452" textAnchor="middle" fontSize="13" fill="#FFF4DE" style={{ fontFamily: "var(--font-sans)", fontWeight: 600 }}>
+            <rect x="453" y="570" width="104" height="26" rx="4" fill={INK} />
+            <text x="505" y="588" textAnchor="middle" fontSize="13" fill="#FFF4DE" style={{ fontFamily: "var(--font-sans)", fontWeight: 600 }}>
               Scan here
             </text>
             <g stroke={INK} strokeWidth="2.5" data-keepout="scanner">
@@ -63,8 +63,7 @@ export function Scene5Card() {
               <path d="M494 490 h22 M494 500 h22 M494 510 h14" strokeWidth="2" />
               <circle className="led" cx="505" cy="545" r="6" fill="#0B7D47" />
             </g>
-            <Use id="pot-plant" x={440} y={712} d={120} />
-            <Use id="pot-plant" x={860} y={712} d={180} />
+            <Use id="pot-plant" x={478} y={712} d={120} keep="plant" />
             <rect x="600" y="770" width="220" height="20" rx="3" fill="#D11F5C" stroke={INK} strokeWidth="2.5" />
             <text x="710" y="786" textAnchor="middle" fontSize="14" fill="#FFF4DE">
               WELCOME

@@ -154,6 +154,23 @@
   position: relative;
   min-width: 0;
 }
+/* the caption card and anything that follows it (the rate board) stack in one column */
+.caption-col {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+/* anchor links land below the sticky nav, not under it */
+main section[id] {
+  scroll-margin-top: 56px;
+}
+@media (min-width: 768px) {
+  main section[id] {
+    scroll-margin-top: 64px;
+  }
+}
 
 @media (min-width: 768px) {
   .scene {
@@ -226,10 +243,16 @@
   .scene.wide .demo-slot.center {
     justify-content: center;
   }
-  .scene.wide .side-card {
+  .scene.wide .caption-col {
     position: absolute;
     left: max(104px, calc((100% - 1440px) / 2 + 104px));
+    top: 40px;
     width: 440px;
+    z-index: 3;
+  }
+  .scene.wide .caption-col > .caption {
+    position: static;
+    width: auto;
   }
 }
 @media (min-width: 1440px) {
@@ -477,6 +500,17 @@
   overflow-y: auto;
   overscroll-behavior: contain;
 }
+.demo-foot {
+  align-self: flex-start;
+  width: fit-content;
+  max-width: 100%;
+  margin-top: 4px;
+  padding: 0 14px;
+  background: var(--cream);
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  box-shadow: 0 2px 0 var(--ink);
+}
 .demo-reset {
   font-size: 14px;
   font-weight: 600;
@@ -486,9 +520,6 @@
   min-height: 44px;
   display: inline-flex;
   align-items: center;
-}
-.demo-on-dark .demo-reset {
-  color: var(--cream);
 }
 
 /* skeleton for islands: still cream bars */
@@ -613,11 +644,18 @@
     transform var(--fast);
   pointer-events: none;
 }
-.stop-rail a[aria-current="step"] .nm,
 .stop-rail a:hover .nm,
 .stop-rail a:focus-visible .nm {
   opacity: 1;
   transform: none;
+  z-index: 5;
+}
+/* the active stop's name stays out only where it clears the caption card (card left >= 236px) */
+@media (min-width: 1704px) {
+  .stop-rail a[aria-current="step"] .nm {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 /* menu sheet (phone) */
@@ -854,17 +892,21 @@
 .ravi[data-pose="one-sec"] .talk {
   animation: kb-show 2600ms ease both;
 }
+/* both forearms come inward under the pile, the way you carry a stack of registers */
 .ravi[data-pose="carry-pile"] .arm-l .shoulder {
-  transform: rotate(30deg);
+  transform: rotate(-12deg);
 }
 .ravi[data-pose="carry-pile"] .arm-r .shoulder {
-  transform: rotate(-30deg);
+  transform: rotate(12deg);
 }
 .ravi[data-pose="carry-pile"] .arm-l .elbow {
-  transform: rotate(70deg);
+  transform: rotate(-78deg);
 }
 .ravi[data-pose="carry-pile"] .arm-r .elbow {
-  transform: rotate(-70deg);
+  transform: rotate(78deg);
+}
+.ravi[data-pose="carry-pile"] .head {
+  transform: rotate(-4deg);
 }
 
 /* Mahesh */
@@ -1270,7 +1312,7 @@ html[data-js] .scene[data-on="0"] .rv-slide {
   position: absolute;
   inset: 0;
   transform-origin: left center;
-  transform: perspective(900px) rotateY(-75deg);
+  transform: perspective(900px) rotateY(75deg);
 }
 .scene[data-on="1"] .glass-door .door-leaf {
   animation: kb-door 500ms var(--ease-io) 100ms both;
@@ -1280,7 +1322,7 @@ html[data-js] .scene[data-on="0"] .rv-slide {
     transform: perspective(900px) rotateY(0);
   }
   to {
-    transform: perspective(900px) rotateY(-75deg);
+    transform: perspective(900px) rotateY(75deg);
   }
 }
 @media (max-width: 1279px) {
@@ -1621,13 +1663,6 @@ html[data-js] .scene[data-on="0"] .card-reveal {
     order: -1;
     padding: 0;
   }
-  .scene-ui > .side-card {
-    grid-column: 1;
-  }
-  .scene-ui:has(> .side-card) > .demo-slot {
-    grid-column: 2;
-    grid-row: 1 / span 2;
-  }
 }
 .rate-board {
   background: var(--marigold);
@@ -1635,11 +1670,6 @@ html[data-js] .scene[data-on="0"] .card-reveal {
   border-radius: 12px;
   box-shadow: 0 4px 0 var(--ink);
   padding: 16px 20px;
-}
-@media (min-width: 1280px) {
-  .scene.wide .rate-board {
-    top: 360px;
-  }
 }
 /* scene 6 beats */
 .t-morning {

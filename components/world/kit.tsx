@@ -84,9 +84,11 @@ export function WorldDefs() {
         </symbol>
         <symbol id="water-tank" overflow="visible">
           <g stroke={INK} strokeWidth="2.5">
-            <rect width="36" height="40" rx="6" fill={INK} />
-            <path d="M4 12h28M4 21h28M4 30h28" stroke="#FFF4DE" strokeWidth="2" />
-            <rect x="12" y="-6" width="12" height="6" rx="2" fill={INK} />
+            {/* the black rooftop tank: a domed drum on two legs, a lid, two moulded ribs */}
+            <path d="M0 12 Q0 0 18 0 Q36 0 36 12 V40 H0 Z" fill={INK} />
+            <path d="M3 20h30M3 31h30" stroke="#4A4760" strokeWidth="2.5" />
+            <rect x="12" y="-5" width="12" height="6" rx="2" fill="#4A4760" />
+            <path d="M5 40v7M31 40v7" strokeWidth="3" />
           </g>
         </symbol>
         <symbol id="dish" overflow="visible">

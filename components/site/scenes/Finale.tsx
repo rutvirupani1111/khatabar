@@ -54,10 +54,11 @@ export function Finale() {
               />
               <ChaiStall />
               <Pavement />
-              <Use id="scooter" x={372} y={678} s={0.6} style={{ ["--scoot" as string]: "#D11F5C" }} />
-              <Meena x={448} y={748} s={0.5} chair={false} pose="smile" actor="fin-meena" />
-              <Mahesh x={1066} y={800} s={0.62} pose="walk" towel bag={false} actor="fin-mahesh" />
-              <Omkar x={1170} y={800} s={0.6} pose="walk-books" actor="fin-omkar" />
+              <Mahesh x={1040} y={800} s={0.62} pose="walk" towel bag={false} actor="fin-mahesh" />
+              <Omkar x={1140} y={800} s={0.6} pose="walk-books" actor="fin-omkar" />
+              {/* Meena pulls up at the chai stall on her scooter, clear of the notice */}
+              <Use id="scooter" x={1236} y={678} s={0.6} style={{ ["--scoot" as string]: "#D11F5C" }} keep="scooter" />
+              <Meena x={1312} y={748} s={0.5} chair={false} pose="smile" actor="fin-meena" />
               <Moti kind="stand" x={960} y={796} s={0.5} pose="wag" actor="fin-moti" />
               <Kabootar x={440} y={366} s={0.8} actor="fin-kabootar" letter={false} />
             </g>
