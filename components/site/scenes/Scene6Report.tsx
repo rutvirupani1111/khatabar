@@ -13,7 +13,7 @@ import { CaptionCard, cropVars, ext } from "../bits";
 export function Scene6Report() {
   const c = SCENES[5];
   const style = {
-    ...cropVars({ p: [104, 280, 796, 520], m: [0, 200, 1440, 640] }),
+    ...cropVars({ p: [110, 236, 790, 554], m: [0, 200, 1440, 640] }),
     "--ext": ext([
       ["#2E3A78", 640],
       ["#2B2A40", 840],

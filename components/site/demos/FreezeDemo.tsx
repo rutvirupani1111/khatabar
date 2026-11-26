@@ -2,7 +2,7 @@
 // Scene 4's demo: the freeze whiteboard. Omkar's real request from the demo gym waits at the top;
 // Approve moves his end date forward by exactly the days asked. Below, everyone ending in the next
 // two weeks is a magnet you can tap to freeze (a drag is never needed).
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useDerived, useGym, useSnap } from "@/components/shell/Gym";
 import { Icon } from "@/components/ui/Icon";
 import { Chip } from "@/components/ui/Status";
@@ -38,6 +38,12 @@ function FreezeBoard() {
   const [form, setForm] = useState<null | { memberId: string; days: number; reason: string; from: string }>(null);
   const [err, setErr] = useState("");
   const [last, setLast] = useState<null | { freezeId: string; text: string }>(null);
+  // the magnet menu and the freeze form open under the board: bring them into view, so a tap on a
+  // magnet always shows its result even inside the scene's scrolling demo slot
+  const opened = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (menu || form) opened.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [menu, form]);
 
   useEffect(
     () =>
@@ -147,7 +153,7 @@ function FreezeBoard() {
         {!req && !decided && <p className="mt-1 text-[14px] text-[var(--muted-ink)]">No requests waiting. Members ask from their phone card.</p>}
       </section>
 
-      <section className="whiteboard p-3 pb-5" aria-label="Who ends in the next 2 weeks">
+      <section className="whiteboard p-3 pb-3" aria-label="Who ends in the next 2 weeks">
         <h3 className="mb-2 text-[15px] font-bold">Who ends in the next 2 weeks</h3>
         <div className="grid grid-cols-7 gap-1" role="list">
           {days.map((day) => {
@@ -174,12 +180,8 @@ function FreezeBoard() {
             );
           })}
         </div>
-        {onBoard.length > shown.length && (
-          <a href="/demo/freeze" className="mt-2 inline-flex min-h-11 items-center text-[14px] font-semibold underline">
-            +{onBoard.length - shown.length} more on the full board
-          </a>
-        )}
-        <p className="mt-2 flex flex-wrap items-center gap-3 text-[12px] font-semibold">
+        <div className="mt-1 flex flex-wrap items-center justify-between gap-x-3">
+        <p className="flex flex-wrap items-center gap-3 text-[12px] font-semibold">
           <span className="inline-flex items-center gap-1">
             <span className="size-3 rounded-full border-2 border-[var(--ink)] bg-[var(--marigold-pale)]" /> Ends soon
           </span>
@@ -191,10 +193,16 @@ function FreezeBoard() {
           </span>
           <span>Frozen now or soon: {frozen.length}</span>
         </p>
+        {onBoard.length > shown.length && (
+          <a href="/demo/freeze" className="inline-flex min-h-11 items-center text-[13px] font-semibold underline">
+            +{onBoard.length - shown.length} more on the full board
+          </a>
+        )}
+        </div>
       </section>
 
       {menu && !form && (
-        <div className="demo-panel flex flex-wrap items-center gap-2 p-3">
+        <div ref={opened} className="demo-panel flex flex-wrap items-center gap-2 p-3">
           <span className="w-full text-[14px] font-bold">{d.byId.get(menu)?.m.name}</span>
           <button type="button" className="btn btn-sm !min-h-11" onClick={() => setForm({ memberId: menu, days: 7, reason: "Travel", from: today })}>
             <Icon name="snow" size={16} /> Freeze…
@@ -205,7 +213,7 @@ function FreezeBoard() {
         </div>
       )}
       {form && (
-        <div className="demo-panel flex flex-col gap-3 p-4">
+        <div ref={opened} className="demo-panel flex flex-col gap-3 p-4">
           <h3 className="text-[16px] font-bold">Freeze {d.byId.get(form.memberId)?.m.name}</h3>
           <label>
             <span className="label">From</span>

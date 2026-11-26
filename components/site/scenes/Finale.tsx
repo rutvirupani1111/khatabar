@@ -54,6 +54,10 @@ export function Finale() {
               />
               <ChaiStall />
               <Pavement />
+              {/* the wall under the notice: a parked scooter and the neighbour's plants */}
+              <Use id="pot-plant" x={150} y={726} s={0.9} />
+              <Use id="pot-plant" x={232} y={735} s={0.75} />
+              <Use id="scooter" x={372} y={678} s={0.6} style={{ ["--scoot" as string]: "#1565D8" }} keep="parked-scooter" />
               <Mahesh x={1040} y={800} s={0.62} pose="walk" towel bag={false} actor="fin-mahesh" />
               <Omkar x={1140} y={800} s={0.6} pose="walk-books" actor="fin-omkar" />
               {/* Meena pulls up at the chai stall on her scooter, clear of the notice */}

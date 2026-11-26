@@ -24,7 +24,7 @@ export function SiteFrame({ children }: { children: ReactNode }) {
 
 export function SiteFooter() {
   return (
-    <footer className="on-dark border-t-2 border-[var(--ink)] bg-[var(--indigo)] text-[var(--cream)]">
+    <footer className="on-dark relative z-[2] border-t-2 border-[var(--ink)] bg-[var(--indigo)] text-[var(--cream)]">
       <div className="mx-auto flex max-w-[1440px] flex-col gap-6 px-4 py-10 md:px-8 lg:flex-row lg:items-start lg:justify-between">
         <div className="max-w-[420px]">
           <Link href="/" className="inline-flex min-h-11 items-center gap-2">

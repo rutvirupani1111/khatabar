@@ -53,11 +53,11 @@ export function Scene3Fees() {
             <rect x="0" y="268" width="1440" height="512" fill="#B5452E" stroke={INK} strokeWidth="2.5" />
             <rect x="0" y="268" width="1440" height="512" fill="url(#kb-bricks)" opacity=".75" />
             <Dots x={0} y={268} w={1440} h={512} o={0.1} />
-            <g transform="rotate(-1 750 350)">
-              <text x="624" y="366" fontSize="34" fill="#FFF4DE">
+            <g transform="rotate(-1 710 350)">
+              <text x="580" y="366" fontSize="34" fill="#FFF4DE">
                 KHATABAR GYM
               </text>
-              <path d="M626 386 H850 l-14 -10 M850 386 l-14 10" fill="none" stroke="#FFF4DE" strokeWidth="5" strokeLinecap="round" />
+              <path d="M582 386 H806 l-14 -10 M806 386 l-14 10" fill="none" stroke="#FFF4DE" strokeWidth="5" strokeLinecap="round" />
             </g>
             <rect x="380" y="420" width="120" height="150" rx="4" fill="#FFF4DE" stroke={INK} strokeWidth="2.5" transform="rotate(2 440 495)" />
             <text x="440" y="470" textAnchor="middle" fontSize="16" fill={INK} transform="rotate(2 440 495)">

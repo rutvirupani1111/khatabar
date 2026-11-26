@@ -164,11 +164,11 @@
 }
 /* anchor links land below the sticky nav, not under it */
 main section[id] {
-  scroll-margin-top: 56px;
+  scroll-margin-top: 60px;
 }
 @media (min-width: 768px) {
   main section[id] {
-    scroll-margin-top: 64px;
+    scroll-margin-top: 68px;
   }
 }
 
@@ -1765,5 +1765,60 @@ html[data-js] .scene[data-on="0"] .card-reveal {
   }
   .scene.wide .demo-slot:has(.phone-frame.wide-only) {
     overflow: visible;
+  }
+}
+
+/* ---------------------------------------------------------------- sign in / start: the night street */
+.night-panel {
+  position: relative;
+  height: 200px;
+  overflow: hidden;
+  border-bottom: 2px solid var(--ink);
+  background: #24286a;
+}
+.night-art {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+/* phone and tablet: the shop centred in the band, signboard and shutter in view */
+.night-art > svg {
+  position: absolute;
+  left: 50%;
+  bottom: -48px;
+  height: 330px;
+  width: auto;
+  aspect-ratio: 1440 / 840;
+  transform: translateX(-65%);
+}
+@media (min-width: 1024px) {
+  .night-panel {
+    position: fixed;
+    top: 64px;
+    bottom: 0;
+    right: 0;
+    width: 46%;
+    height: auto;
+    border-bottom: 0;
+    border-left: 2px solid var(--ink);
+  }
+  .night-art > svg {
+    bottom: 0;
+    height: 100%;
+  }
+}
+/* wide: the whole street behind the page, the notice on the night wall */
+@media (min-width: 1280px) {
+  .night-panel {
+    left: 0;
+    width: auto;
+    border-left: 0;
+  }
+  .night-art > svg {
+    left: 0;
+    width: 100%;
+    height: 100%;
+    aspect-ratio: auto;
+    transform: none;
   }
 }
