@@ -1926,6 +1926,12 @@ html[data-js] .scene[data-on="0"] .card-reveal {
 .scene.wide .caption-col > .caption[data-prop] {
   position: relative;
 }
+/* in the caption column the prop sits where the column puts it: the old absolute offsets for
+   wide captions must not push it down and right over the rate board */
+.scene.wide .caption-col > .caption[data-prop] {
+  top: auto;
+  left: auto;
+}
 /* stop 2: the slate on the counter */
 .caption[data-prop="slate"] {
   background: var(--slate);

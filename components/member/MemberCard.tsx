@@ -190,9 +190,11 @@ function CardBody({ st, snap, token, embed }: { st: MemberState; snap: Snapshot;
 function ShopStrip({ name, branch, color }: { name: string; branch: string; color: string }) {
   const long = name.length > 18;
   return (
-    <svg viewBox="0 0 400 92" className="block h-auto w-full" role="img" aria-label={`${name}, ${branch}`}>
-      <rect width="400" height="92" fill="#B5452E" />
-      <path d="M0 14h400M0 30h400M0 46h400M0 62h400M0 78h400M30 0v14M90 14v16M150 0v14M210 14v16M270 0v14M330 14v16M390 0v14M60 30v16M120 46v16M240 30v16M300 46v16M360 30v16M20 62v16M180 62v16M340 62v16" stroke="#8E3423" strokeWidth="2" />
+    // the top 18 units are bare brick, where the lanyard clip holds the card; the signboard hangs below it
+    <svg viewBox="0 0 400 110" className="block h-auto w-full" role="img" aria-label={`${name}, ${branch}`}>
+      <rect width="400" height="110" fill="#B5452E" />
+      <path d="M0 14h400M0 30h400M0 46h400M0 62h400M0 78h400M0 94h400M30 0v14M90 14v16M150 0v14M210 14v16M270 0v14M330 14v16M390 0v14M60 30v16M120 46v16M240 30v16M300 46v16M360 30v16M20 62v16M180 62v16M340 62v16M100 78v16M260 78v16M30 94v16M370 94v16" stroke="#8E3423" strokeWidth="2" />
+      <g transform="translate(0 18)">
       <rect x="40" y="10" width="320" height="44" rx="7" fill="#FFC21A" stroke="#1B1A2E" strokeWidth="3" />
       {[64, 104, 144, 184, 224, 264, 304, 336].map((x) => (
         <circle key={x} cx={x} cy="10" r="3.5" fill="#FFF1C9" stroke="#1B1A2E" strokeWidth="1.5" />
@@ -207,6 +209,7 @@ function ShopStrip({ name, branch, color }: { name: string; branch: string; colo
       <text x="200" y="88" textAnchor="middle" fontSize="11" fill="#1B1A2E" style={{ fontFamily: "var(--font-sans)", fontWeight: 700 }}>
         {branch.toUpperCase()}
       </text>
+      </g>
     </svg>
   );
 }

@@ -937,20 +937,6 @@ h2:lang(hi) {
   box-shadow: 0 5px 0 var(--ink);
   overflow: hidden;
 }
-.id-card .card-face::before {
-  /* the punched slot the clip goes through */
-  content: "";
-  position: absolute;
-  top: 10px;
-  left: 50%;
-  width: 44px;
-  height: 10px;
-  margin-left: -22px;
-  border: 2px solid var(--ink);
-  border-radius: 6px;
-  background: var(--cream);
-  z-index: 2;
-}
 .id-card .perf {
   border-top: 2px dashed var(--ink);
   margin: 0 14px;

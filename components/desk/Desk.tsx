@@ -495,7 +495,8 @@ function DeskInner() {
             <label className="block">
               <span className="label">
                 Find a member
-                {narrow && <span className="font-normal text-[var(--muted-ink)]"> by the last 4 digits of their phone, or their name</span>}
+                {/* CSS, not JS, decides who sees this, so the box below never moves after load */}
+                <span className="font-normal text-[var(--muted-ink)] lg:hidden"> by the last 4 digits of their phone, or their name</span>
               </span>
               <span className="relative mt-1 block">
                 <Icon name="search" size={22} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2" />
