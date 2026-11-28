@@ -50,12 +50,20 @@ function stepOf(step: TourStep, amount = "the money", name = "Mahesh") {
   }
 }
 
+/** The element a step is about. The desk keeps a hidden copy of the member card for the other
+ *  screen width, so the one that is actually drawn wins. */
+function findTarget(target: string): Element | null {
+  const all = document.querySelectorAll(`[data-tour="${target}"]`);
+  for (const e of all) if (e.getClientRects().length > 0) return e;
+  return all[0] ?? null;
+}
+
 /** Puts the marigold ring on whatever the step is about, and moves it if the element is replaced. */
 function useRing(target: string) {
   useEffect(() => {
     let el: Element | null = null;
     const mark = () => {
-      const next = document.querySelector(`[data-tour="${target}"]`);
+      const next = findTarget(target);
       if (next === el) return;
       el?.removeAttribute("data-tour-on");
       el = next;
@@ -82,8 +90,46 @@ function useWide() {
   return w;
 }
 
-function Body({ step, amount, name, onSkip, onDoIt, onFees, showMe }: Props & { showMe?: () => void }) {
+function Body({ step, amount, name, onSkip, onDoIt, onFees, showMe, compact }: Props & { showMe?: () => void; compact?: boolean }) {
   const s = stepOf(step, amount, name);
+  // phones and tablets: a short strip in the page itself (above the search box, or at the top of
+  // the member's sheet), so it never floats over the thing it points at. Same two rows every step.
+  if (compact)
+    return (
+      <>
+        <div className="flex items-start gap-2">
+          <svg viewBox="0 0 140 110" width="36" height="28" className="pointer-events-none mt-0.5 shrink-0" aria-hidden>
+            <Moti kind="sit" x={70} y={108} s={0.7} pose="point" />
+          </svg>
+          <p className="min-w-0 flex-1 text-[15px] font-bold leading-snug">
+            <span className="mr-1 text-[12px] font-semibold text-[var(--muted-ink)]">Step {s.n} of 4.</span>
+            {s.text}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {step === 1 && (
+            <button type="button" className="btn btn-primary btn-sm !min-h-11" onClick={onDoIt}>
+              Do it for me
+            </button>
+          )}
+          {step === 4 && (
+            <>
+              <button type="button" className="btn btn-primary btn-sm !min-h-11" onClick={onSkip}>
+                Finish
+              </button>
+              <button type="button" className="btn btn-sm !min-h-11" onClick={onFees}>
+                Go to Fees due
+              </button>
+            </>
+          )}
+          {step !== 4 && (
+            <button type="button" className="ml-auto min-h-11 px-1 text-[14px] font-semibold underline underline-offset-4" onClick={onSkip}>
+              Skip tour
+            </button>
+          )}
+        </div>
+      </>
+    );
   return (
     <>
       <div className="flex items-center gap-2">
@@ -127,13 +173,14 @@ function Body({ step, amount, name, onSkip, onDoIt, onFees, showMe }: Props & { 
 export function TourInline(p: Props) {
   useRing(stepOf(p.step).target);
   return (
-    <div role="status" aria-live="polite" className="flex shrink-0 flex-col gap-2 rounded-2xl border-2 border-[var(--ink)] bg-[var(--marigold-pale)] p-3">
-      <Body {...p} />
+    <div role="status" aria-live="polite" className="flex shrink-0 flex-col gap-2 rounded-2xl border-2 border-[var(--ink)] bg-[var(--marigold-pale)] px-3 py-2">
+      <Body {...p} compact />
     </div>
   );
 }
 
-/** The floating step card: beside its target on a desk screen, docked to the bottom on a phone. */
+/** The floating step card: beside its target on a desk screen. On a phone it sits just above or
+ *  below the target, or above the bottom tabs, never on top of the control it points at. */
 export function Tour(p: Props) {
   const s = stepOf(p.step, p.amount, p.name);
   const wide = useWide();
@@ -149,14 +196,14 @@ export function Tour(p: Props) {
     return () => window.removeEventListener("keydown", on);
   }, [p]);
 
-  // desk screens: place the card beside the target, below the app header, inside the screen
+  // place the card beside the target (desk) or above/below it (phone), below the app header
   useLayoutEffect(() => {
-    if (!wide) return;
+    if (wide === null) return;
     const box = card.current;
     if (!box) return;
     let last = "";
     const place = () => {
-      const el = document.querySelector(`[data-tour="${s.target}"]`);
+      const el = findTarget(s.target);
       const bw = box.offsetWidth;
       const bh = box.offsetHeight;
       const vw = document.documentElement.clientWidth;
@@ -167,7 +214,14 @@ export function Tour(p: Props) {
       const seen = !!r && r.width > 0 && r.bottom > top0 + 8 && r.top < vh - 8;
       let x: number;
       let y: number;
-      if (!seen || !r) {
+      if (!wide) {
+        // phones: under the target if it fits above the bottom tabs, else over it, else docked
+        const floor = vh - 76;
+        x = 12;
+        if (seen && r && r.bottom + 12 + bh <= floor) y = r.bottom + 12;
+        else if (seen && r && r.top - 12 - bh >= top0) y = r.top - 12 - bh;
+        else y = floor - bh;
+      } else if (!seen || !r) {
         x = vw - bw - 24;
         y = vh - bh - 24;
       } else if (r.left > vw / 2 && r.left - bw - 20 >= 16) {
@@ -183,7 +237,7 @@ export function Tour(p: Props) {
         x = r.left;
         y = r.top - bh - 16;
       }
-      x = Math.round(Math.max(16, Math.min(vw - bw - 16, x)));
+      x = Math.round(wide ? Math.max(16, Math.min(vw - bw - 16, x)) : x);
       y = Math.round(Math.max(top0, Math.min(vh - bh - 16, y)));
       const key = `${x},${y},${seen}`;
       if (key === last) return;
@@ -205,16 +259,10 @@ export function Tour(p: Props) {
   }, [wide, s.target]);
 
   if (wide === null) return null;
-  const showMe = off ? () => document.querySelector(`[data-tour="${s.target}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" }) : undefined;
-  if (!wide)
-    return (
-      <div role="dialog" aria-label={`Tour step ${s.n} of 4`} aria-live="polite" className="tour-dock panel flex flex-col gap-2 p-3">
-        <Body {...p} />
-      </div>
-    );
+  const showMe = off ? () => findTarget(s.target)?.scrollIntoView({ block: "center", behavior: "smooth" }) : undefined;
   return (
-    <div ref={card} role="dialog" aria-label={`Tour step ${s.n} of 4`} aria-live="polite" className="tour-card panel flex flex-col gap-3 p-4">
-      <Body {...p} showMe={showMe} />
+    <div ref={card} role="dialog" aria-label={`Tour step ${s.n} of 4`} aria-live="polite" className={`tour-card panel flex flex-col ${wide ? "gap-3 p-4" : "tour-card-phone gap-2 px-3 py-2"}`}>
+      <Body {...p} showMe={wide ? showMe : undefined} compact={!wide} />
     </div>
   );
 }

@@ -155,7 +155,7 @@ export function Start() {
         </button>
         <p className="text-[15px]">
           Already have a gym?{" "}
-          <Link href="/login" className="font-semibold underline">
+          <Link href="/login" className="inline-flex min-h-11 items-center font-semibold underline underline-offset-4">
             Sign in
           </Link>
         </p>
@@ -353,7 +353,7 @@ export function Login() {
       </button>
       <p className="text-[15px]">
         New here?{" "}
-        <Link className="font-semibold underline" href="/start">
+        <Link className="inline-flex min-h-11 items-center font-semibold underline underline-offset-4" href="/start">
           Start for my gym
         </Link>
       </p>

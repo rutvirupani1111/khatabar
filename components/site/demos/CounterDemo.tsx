@@ -99,7 +99,7 @@ function Counter() {
               inputMode="search"
               autoComplete="off"
               className="input !min-h-[52px] !pl-10 text-[17px]"
-              placeholder="Last 4 digits of phone, or name"
+              placeholder="Last 4 of phone, or name"
               value={q}
               onChange={(e) => {
                 setQ(e.target.value);

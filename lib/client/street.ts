@@ -17,15 +17,16 @@ const idle = (fn: () => void) => {
 
 /** The street's day has already had a few cash renewals at the counter, so the night scene's
  *  drawer has real money to count (and the next morning's report shows the same day). Only the
- *  time of three existing cash payments moves; amounts, dues and receipts stay as seeded. */
+ *  time of two small existing cash payments (monthly plans, about ₹2,400 in all, a few notes to
+ *  count) moves; amounts, dues and receipts stay as seeded. */
 function withTodaysCash(snap: Snapshot, now = Date.now()): Snapshot {
   const today = todayIST(now);
   const dayStart = Date.parse(`${today}T00:00:00+05:30`);
   const cutoff = addDays(today, -2);
   let moved = 0;
   for (const p of [...snap.payments].reverse()) {
-    if (moved >= 3) break;
-    if (p.mode !== "cash" || p.state !== "confirmed" || p.amount <= 0 || p.reversesId) continue;
+    if (moved >= 2) break;
+    if (p.mode !== "cash" || p.state !== "confirmed" || p.amount <= 0 || p.amount > 170000 || p.reversesId) continue;
     if (todayIST(Date.parse(p.createdAt)) >= cutoff) continue;
     const at = Math.max(dayStart + 60_000 * (moved + 1), Math.min(now - 15 * 60_000 * (moved + 1), dayStart + (6 * 60 + 10 + moved * 12) * 60_000));
     const iso = new Date(at).toISOString();

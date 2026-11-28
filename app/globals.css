@@ -901,19 +901,9 @@ html:has([aria-modal="true"]) .toasts {
   visibility: hidden;
   will-change: transform;
 }
-.tour-dock {
-  position: fixed;
-  left: 12px;
-  right: 12px;
-  bottom: calc(76px + env(safe-area-inset-bottom));
-  z-index: 65;
-  margin: 0 auto;
+.tour-card.tour-card-phone {
+  width: calc(100vw - 24px);
   max-width: 560px;
-}
-@media (min-width: 768px) {
-  .tour-dock {
-    bottom: 16px;
-  }
 }
 
 /* ---------- Hindi headings keep a heading's line height, not body text's ---------- */

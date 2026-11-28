@@ -16,7 +16,7 @@ export default function Pricing() {
           <div className="rate-slate w-full max-w-[560px] p-5 md:p-7">
             <span className="nail" aria-hidden />
             <p className="t-sign text-[15px] tracking-[0.12em] opacity-80">RATE LIST</p>
-            <h1 id="pricing-title" className="t-display mt-1 text-[40px] leading-none md:text-[44px]">
+            <h1 id="pricing-title" className="t-display mt-2 text-[40px] leading-[1.1] md:text-[44px]">
               Pricing
             </h1>
             <div className="mt-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">

@@ -29,7 +29,9 @@ function PropBits({ prop }: { prop?: Prop }) {
   if (prop === "glass")
     return (
       <>
-        <span className="bar" aria-hidden />
+        <span className="bar" aria-hidden>
+          PUSH
+        </span>
         <span className="welcome" aria-hidden>
           WELCOME
         </span>

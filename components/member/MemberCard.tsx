@@ -173,12 +173,12 @@ function CardBody({ st, snap, token, embed }: { st: MemberState; snap: Snapshot;
           <HomeHint />
           <Settings st={st} />
           {mode === "demo" && (
-            <p className="text-center text-[14px] text-[var(--muted-ink)]">
-              {t.demoHint}{" "}
-              <Link className="font-semibold underline" href="/demo/desk" target="_blank">
+            <div className="flex flex-col items-center gap-1 text-center text-[14px] text-[var(--muted-ink)]">
+              <p>{t.demoHint}</p>
+              <Link className="inline-flex min-h-11 items-center font-semibold text-[var(--ink)] underline underline-offset-4" href="/demo/desk" target="_blank">
                 {t.openDesk}
               </Link>
-            </p>
+            </div>
           )}
         </>
       )}
