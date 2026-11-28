@@ -217,9 +217,11 @@ main section[id] {
     height: clamp(720px, calc(100svh - 64px), 900px);
     overflow: hidden;
   }
+  /* never shorter than the art itself at this width (840/1440 of it), so on a short laptop the
+     drawing is not shrunk and pushed up under the caption: faces stay clear of the words */
   .scene.wide.grow {
     height: auto;
-    min-height: clamp(720px, calc(100svh - 64px), 900px);
+    min-height: max(clamp(720px, calc(100svh - 64px), 900px), min(840px, 58.34vw));
     overflow: clip;
   }
   .scene.wide .scene-art {
@@ -2483,4 +2485,9 @@ html[data-js] .scene[data-on="0"] .card-reveal {
   #import .rate-board {
     order: 3;
   }
+}
+
+/* a demo preview that opens below a chit scrolls into view clear of the sticky nav */
+[data-preview] {
+  scroll-margin: 72px 0 24px;
 }

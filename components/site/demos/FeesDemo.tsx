@@ -108,7 +108,8 @@ function Fees() {
     const days = diffDays(today, todayIST(Date.parse(at)));
     if (days <= 0) {
       const mins = Math.round((Date.now() - Date.parse(at)) / 60000);
-      return mins < 1 ? "Sent just now" : `Sent ${mins} min ago`;
+      // the demo never opens WhatsApp, so it says what really happened: you marked it
+      return mins < 1 ? "Marked as sent just now (demo)" : `Marked as sent ${mins} min ago (demo)`;
     }
     return `Sent ${days} ${days === 1 ? "day" : "days"} ago`;
   };

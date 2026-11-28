@@ -238,9 +238,30 @@ export function ActionBar() {
     els.forEach((e) => io.observe(e));
     return () => io.disconnect();
   }, [path]);
+  // while the visitor reads on down the street the bar steps aside, so it never sits on a demo's
+  // buttons; scrolling back up (or being at the top) brings it back
+  const [down, setDown] = useState(false);
+  useEffect(() => {
+    let last = window.scrollY;
+    let raf = 0;
+    const on = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const y = window.scrollY;
+        if (Math.abs(y - last) < 12) return;
+        setDown(y > last && y > 240);
+        last = y;
+      });
+    };
+    window.addEventListener("scroll", on, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", on);
+      cancelAnimationFrame(raf);
+    };
+  }, [path]);
   if (path === "/start" || path === "/login") return null;
   return (
-    <div className="action-bar" role="region" aria-label="Main actions" data-hide={hide ? "1" : undefined}>
+    <div className="action-bar" role="region" aria-label="Main actions" data-hide={hide || down ? "1" : undefined}>
       <CtaLink href="/demo/desk" className="btn btn-primary">
         <Tx {...ACTIONS.demo} />
       </CtaLink>

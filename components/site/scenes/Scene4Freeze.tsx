@@ -68,7 +68,7 @@ export function Scene4Freeze() {
             </g>
             <Omkar x={392} y={762} s={0.93} actor="s4-omkar" d={300} />
             <g data-keepout="omkar-bubble">
-              <Bubble x={440} y={414} w={276} h={54} text="Exams hain. 10 din ka break?" tail="bl" size={19} cls="rv" />
+              <Bubble x={452} y={428} w={276} h={54} text="Exams hain. 10 din ka break?" tail="bl" size={19} cls="rv" />
             </g>
             <Moti kind="sit" x={176} y={800} s={0.52} actor="s4-moti" d={500} />
           </Plane>
