@@ -346,7 +346,7 @@ export function RenewFlow({
               )}
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 gap-2 min-[400px]:grid-cols-2">
             <button type="button" className="btn btn-success btn-lg" onClick={() => commit([{ mode: "upi_desk", amount: pay, state: "confirmed" }])}>
               <Icon name="tick" size={20} stroke={3} /> Yes, money arrived
             </button>
@@ -384,7 +384,7 @@ export function RenewFlow({
             </label>
           </div>
           <p className="text-[14px]">Cash is counted as paid now. Press &ldquo;Yes, money arrived&rdquo; only after you see the UPI part in your bank.</p>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 gap-2 min-[400px]:grid-cols-2">
             <button
               type="button"
               className="btn btn-success"
@@ -428,7 +428,7 @@ export function RenewFlow({
             {landed ? (landed.state === "waiting" ? "Waiting for money" : "Paid") : "Undone"}
           </h2>
           {landed && landed.state !== "waiting" && (
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3 rounded-xl" data-tour="done">
               <PaidStamp word={landed.state === "part" ? "PART PAID" : "PAID"} />
               <div className="min-w-[180px] flex-1">
                 <p className="text-[17px] font-bold">
@@ -451,8 +451,8 @@ export function RenewFlow({
                 <Chip kind="wait" text={`Waiting for money ${rupees(landed.amount)}`} />
               </span>
               <p className="text-[15px]">Nothing is counted as paid yet. When the money shows in your bank or UPI app, mark it.</p>
-              <div className="grid grid-cols-2 gap-2">
-                <button type="button" className="btn btn-success" onClick={confirmWaiting}>
+              <div className="grid grid-cols-1 gap-2 min-[400px]:grid-cols-2">
+                <button type="button" className="btn btn-success" data-tour="arrived" onClick={confirmWaiting}>
                   <Icon name="tick" size={18} stroke={3} /> Money arrived, mark paid
                 </button>
                 <button type="button" className="btn" onClick={rejectWaiting}>

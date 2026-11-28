@@ -23,17 +23,20 @@ export function Chip({ kind, text, className }: ChipSpec & { className?: string 
   );
 }
 
-/** Every chip that applies, most urgent first. */
-export function chipsFor(st: MemberState): ChipSpec[] {
+/** Every chip that applies, most urgent first. The member's card passes its language. */
+export function chipsFor(st: MemberState, lang: "en" | "hi" = "en"): ChipSpec[] {
   const out: ChipSpec[] = [];
-  if (st.frozenNow) out.push({ kind: "frozen", text: `Frozen till ${fmtDay(st.frozenNow.toDate)}` });
-  if (st.dues > 0) out.push({ kind: "owes", text: `Owes ${rupees(st.dues)}` });
-  if (st.pending > 0) out.push({ kind: "wait", text: `Waiting for money ${rupees(st.pending)}` });
-  if (st.status === "lapsed") out.push({ kind: "ended", text: `Ended on ${fmtDay(st.endDate)}` });
-  else if (st.status === "none") out.push({ kind: "ended", text: "No plan yet" });
-  else if (st.status === "upcoming" && st.term) out.push({ kind: "valid", text: `Starts ${fmtDay(st.term.startDate)}` });
-  else if (!st.frozenNow && st.daysLeft != null && st.daysLeft <= 7) out.push({ kind: "soon", text: st.daysLeft === 0 ? "Ends today" : `Ends in ${st.daysLeft} ${st.daysLeft === 1 ? "day" : "days"}` });
-  else if (!st.frozenNow && st.endDate) out.push({ kind: "valid", text: `Valid till ${fmtDay(st.endDate)}` });
+  const hi = lang === "hi";
+  const day = (s: string | null | undefined) => fmtDay(s, lang);
+  if (st.frozenNow) out.push({ kind: "frozen", text: hi ? `${day(st.frozenNow.toDate)} तक फ़्रीज़` : `Frozen till ${day(st.frozenNow.toDate)}` });
+  if (st.dues > 0) out.push({ kind: "owes", text: hi ? `${rupees(st.dues)} बाकी` : `Owes ${rupees(st.dues)}` });
+  if (st.pending > 0) out.push({ kind: "wait", text: hi ? `${rupees(st.pending)} का इंतज़ार` : `Waiting for money ${rupees(st.pending)}` });
+  if (st.status === "lapsed") out.push({ kind: "ended", text: hi ? `${day(st.endDate)} को ख़त्म` : `Ended on ${day(st.endDate)}` });
+  else if (st.status === "none") out.push({ kind: "ended", text: hi ? "अभी कोई प्लान नहीं" : "No plan yet" });
+  else if (st.status === "upcoming" && st.term) out.push({ kind: "valid", text: hi ? `${day(st.term.startDate)} से शुरू` : `Starts ${day(st.term.startDate)}` });
+  else if (!st.frozenNow && st.daysLeft != null && st.daysLeft <= 7)
+    out.push({ kind: "soon", text: st.daysLeft === 0 ? (hi ? "आज ख़त्म" : "Ends today") : hi ? `${st.daysLeft} दिन में ख़त्म` : `Ends in ${st.daysLeft} ${st.daysLeft === 1 ? "day" : "days"}` });
+  else if (!st.frozenNow && st.endDate) out.push({ kind: "valid", text: hi ? `${day(st.endDate)} तक वैध` : `Valid till ${day(st.endDate)}` });
   return out;
 }
 
@@ -63,7 +66,7 @@ export function Initials({ name, photo, size = 40, tone = "var(--marigold-pale)"
 }
 
 /** Days left as a ring: the filled part is what is left of the current term. */
-export function DaysRing({ left, total, size = 72, frozen }: { left: number | null; total: number; size?: number; frozen?: boolean }) {
+export function DaysRing({ left, total, size = 72, frozen, lang = "en" }: { left: number | null; total: number; size?: number; frozen?: boolean; lang?: "en" | "hi" }) {
   const r = size / 2 - 8;
   const c = 2 * Math.PI * r;
   const f = left != null && total > 0 ? Math.max(0, Math.min(1, (left + 1) / total)) : 0;
@@ -81,8 +84,9 @@ export function DaysRing({ left, total, size = 72, frozen }: { left: number | nu
           <span className="t-display block" style={{ fontSize: size * 0.3 }}>
             {left == null ? "–" : Math.max(0, left)}
           </span>
-          <span className="block font-semibold" style={{ fontSize: Math.max(10, size * 0.14) }}>
-            {left != null && left < 0 ? "ended" : left === 1 ? "day" : "days"}
+          {/* sits inside the inner ring, clear of the stroke at every size */}
+          <span className="block font-semibold" style={{ fontSize: Math.max(9, Math.min(12, size * 0.13)), marginTop: 1 }}>
+            {lang === "hi" ? (left != null && left < 0 ? "ख़त्म" : "दिन") : left != null && left < 0 ? "ended" : left === 1 ? "day" : "days"}
           </span>
         </span>
       </span>

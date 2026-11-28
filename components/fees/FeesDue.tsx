@@ -18,11 +18,12 @@ import type { MemberState } from "@/lib/core/state";
 import type { Lang, Stage } from "@/lib/core/types";
 
 type G = "day0" | "pre3" | "pre7" | "post3" | "dues" | "missed";
+// each title says exactly who is in it
 const GROUPS: { k: G; title: string }[] = [
   { k: "day0", title: "Ends today" },
-  { k: "pre3", title: "Ends in 3 days" },
-  { k: "pre7", title: "Ends in 7 days" },
-  { k: "post3", title: "Ended 3 days ago" },
+  { k: "pre3", title: "Ends in the next 3 days" },
+  { k: "pre7", title: "Ends in 4 to 7 days" },
+  { k: "post3", title: "Ended in the last 2 weeks" },
   { k: "dues", title: "Owes money" },
   { k: "missed", title: "Stopped coming" },
 ];
@@ -54,6 +55,32 @@ function what(x: MemberState, g: G) {
   return { kind: "valid" as const, text: x.lastVisit ? `Last came ${fmtDay(x.lastVisit)}` : "Not seen lately" };
 }
 
+/** The right-hand column on a desk screen: a phone with WhatsApp open, the message fills in as
+ *  a member is picked, and Kabootar waits on its edge with an envelope. */
+function WaPhone({ children }: { children?: React.ReactNode }) {
+  return (
+    <div className="wa-phone">
+      <svg viewBox="0 0 120 70" width="96" height="56" className="wa-bird" aria-hidden>
+        <ellipse cx="58" cy="44" rx="34" ry="18" fill="#9AA6B2" stroke="#1B1A2E" strokeWidth="2.5" />
+        <circle cx="88" cy="30" r="12" fill="#9AA6B2" stroke="#1B1A2E" strokeWidth="2.5" />
+        <path d="M98 30 l10 3 l-10 3 z" fill="#FF8A00" stroke="#1B1A2E" strokeWidth="2" />
+        <circle cx="91" cy="27" r="2.2" fill="#1B1A2E" />
+        <path d="M36 40 q14 -14 30 -2" fill="none" stroke="#1B1A2E" strokeWidth="2.5" />
+        <path d="M80 40 q4 6 10 6" fill="none" stroke="#0B7D47" strokeWidth="4" />
+        <rect x="6" y="36" width="30" height="20" rx="2" fill="#FFF4DE" stroke="#1B1A2E" strokeWidth="2" transform="rotate(-8 21 46)" />
+        <path d="M8 39 l13 9 l13 -11" fill="none" stroke="#1B1A2E" strokeWidth="1.8" transform="rotate(-8 21 46)" />
+        <path d="M50 62 v6 M64 62 v6" stroke="#FF8A00" strokeWidth="3" strokeLinecap="round" />
+      </svg>
+      <div className="wa-screen">
+        <div className="wa-top">
+          <Icon name="chat" size={16} /> WhatsApp preview
+        </div>
+        <div className="wa-chat">{children || <p className="wa-empty">Pick a name on the left and press Send reminder. The polite message appears here, ready to change.</p>}</div>
+      </div>
+    </div>
+  );
+}
+
 export function FeesDue() {
   const { store, mode, lang, today } = useGym();
   const snap = useSnap();
@@ -81,6 +108,15 @@ export function FeesDue() {
       const g = groupOf(x, today);
       if (g) m.get(g)!.push(x);
     }
+    // soonest first for plans that are ending, most recent first for plans that ended,
+    // biggest amount first for money owed
+    const end = (x: MemberState) => x.endDate ?? "";
+    m.get("day0")!.sort((a, b) => a.m.name.localeCompare(b.m.name));
+    m.get("pre3")!.sort((a, b) => end(a).localeCompare(end(b)) || a.m.name.localeCompare(b.m.name));
+    m.get("pre7")!.sort((a, b) => end(a).localeCompare(end(b)) || a.m.name.localeCompare(b.m.name));
+    m.get("post3")!.sort((a, b) => end(b).localeCompare(end(a)) || a.m.name.localeCompare(b.m.name));
+    m.get("dues")!.sort((a, b) => b.dues - a.dues || a.m.name.localeCompare(b.m.name));
+    m.get("missed")!.sort((a, b) => (a.lastVisit ?? "").localeCompare(b.lastVisit ?? ""));
     return m;
   }, [d, today]);
   const gOf = useMemo(() => {
@@ -110,6 +146,8 @@ export function FeesDue() {
     const at = snap?.reminders.filter((r) => r.memberId === id && r.openedAt).sort((a, b) => ((a.openedAt ?? "") < (b.openedAt ?? "") ? 1 : -1))[0]?.openedAt;
     if (!at) return "Not sent yet";
     const days = diffDays(today, todayIST(Date.parse(at)));
+    // the demo never opens WhatsApp, so it never says it did
+    if (days <= 0 && mode === "demo") return Date.now() - Date.parse(at) < 120000 ? "Marked as sent (demo) just now" : "Marked as sent (demo) today";
     if (days <= 0) return Date.now() - Date.parse(at) < 120000 ? "Opened in WhatsApp just now" : "Opened in WhatsApp today";
     return `Sent ${days} ${days === 1 ? "day" : "days"} ago`;
   };
@@ -123,7 +161,7 @@ export function FeesDue() {
     }
     store.run("reminder.mark", { id, state: "opened" });
     if (mode === "live") window.open(waLink(x.m.phone, text), "_blank", "noopener");
-    else store.note(`Marked as sent to ${x.m.name}. In your gym WhatsApp opens with this message typed; you press Send.`, "ink");
+    else store.note(`Marked as sent to ${x.m.name} (demo). In your gym WhatsApp opens with this message typed; you press Send.`, "ink");
   };
   const next = () => {
     if (!walk) return;
@@ -136,10 +174,16 @@ export function FeesDue() {
   if (!snap || !d)
     return (
       <AppScreen screen="fees" title="Fees due" sentence="Send polite WhatsApp reminders to people who owe money or whose plan is ending. You press Send in WhatsApp." vignette="fees">
-        <div className="island-skel mx-auto w-full max-w-[1200px]" aria-hidden>
-          {Array.from({ length: 6 }, (_, i) => (
-            <i key={i} style={{ height: 52 }} />
-          ))}
+        {/* the skeleton has the page's real width and columns, so nothing moves when it fills in */}
+        <div className="mx-auto grid w-full max-w-[1440px] gap-4 px-3 py-4 md:px-6 lg:grid-cols-[minmax(0,1fr)_400px]" aria-hidden>
+          <div className="island-skel !p-0">
+            {Array.from({ length: 6 }, (_, i) => (
+              <i key={i} style={{ height: 52 }} />
+            ))}
+          </div>
+          <div className="hidden lg:block">
+            <WaPhone />
+          </div>
         </div>
       </AppScreen>
     );
@@ -185,7 +229,9 @@ export function FeesDue() {
           className="btn btn-success"
           onClick={() => {
             send(st);
+            // the job is done: one by one moves on, a single reminder closes
             if (walk) next();
+            else setCur(null);
           }}
         >
           <Icon name="chat" size={18} /> {mode === "live" ? "Open WhatsApp" : "Mark as sent (demo)"}
@@ -277,7 +323,9 @@ export function FeesDue() {
             })}
           </div>
           <aside className="hidden lg:block">
-            <div className="panel sticky top-[120px] p-4">{preview || <p className="text-[15px] text-[var(--muted-ink)]">Pick a name and press Send reminder. The message appears here, ready to change.</p>}</div>
+            <div className="sticky top-[120px]">
+              <WaPhone>{preview}</WaPhone>
+            </div>
           </aside>
         </div>
       )}

@@ -835,3 +835,190 @@ html[data-lang="hi"] .l-hi.l-block {
 .world * {
   pointer-events: none;
 }
+
+/* ---------- steadiness: the page never jumps sideways when a list grows past one screen ---------- */
+html {
+  scrollbar-gutter: stable;
+}
+/* keyboard hints are for desk computers only; a phone-width or touch-only screen never shows them */
+@media (max-width: 767px), (hover: none) and (pointer: coarse) {
+  .kc {
+    display: none !important;
+  }
+}
+.demo-bar-btn {
+  min-height: 32px;
+}
+/* fingers need 44px: filter chips, small buttons and the demo bar grow on touch screens */
+@media (pointer: coarse) {
+  .chip-filter {
+    height: 44px;
+  }
+  .btn.btn-sm,
+  .tap-44 {
+    min-height: 44px !important;
+  }
+  .tap-44-sq {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+/* while a sheet is open the toasts move to the top, so they never sit on its buttons */
+html:has([aria-modal="true"]) .toasts {
+  top: calc(12px + env(safe-area-inset-top));
+  bottom: auto !important;
+}
+
+/* ---------- the guided first run: the control to press gets a marigold ring, nothing is dimmed ---------- */
+[data-tour-on] {
+  outline: 3px solid var(--saffron) !important;
+  outline-offset: 3px;
+  animation: kb-tour-ring 1600ms ease-in-out infinite;
+}
+@keyframes kb-tour-ring {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 138, 0, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(255, 138, 0, 0);
+  }
+}
+[data-fx="calm"] [data-tour-on] {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-fx="full"]) [data-tour-on] {
+    animation: none;
+  }
+}
+.tour-card {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 65;
+  width: min(320px, calc(100vw - 32px));
+  visibility: hidden;
+  will-change: transform;
+}
+.tour-dock {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(76px + env(safe-area-inset-bottom));
+  z-index: 65;
+  margin: 0 auto;
+  max-width: 560px;
+}
+@media (min-width: 768px) {
+  .tour-dock {
+    bottom: 16px;
+  }
+}
+
+/* ---------- Hindi headings keep a heading's line height, not body text's ---------- */
+.t-display :lang(hi),
+.hero-h1 :lang(hi),
+.scene-h2 :lang(hi),
+h1:lang(hi),
+h2:lang(hi) {
+  line-height: 1.25;
+}
+
+/* ---------- the member's card, worn on a lanyard ---------- */
+.id-card {
+  position: relative;
+  padding-top: 34px;
+}
+.id-card .lanyard {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 120px;
+  height: 46px;
+  margin-left: -60px;
+  pointer-events: none;
+}
+.id-card .card-face {
+  position: relative;
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  border-radius: 18px;
+  box-shadow: 0 5px 0 var(--ink);
+  overflow: hidden;
+}
+.id-card .card-face::before {
+  /* the punched slot the clip goes through */
+  content: "";
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  width: 44px;
+  height: 10px;
+  margin-left: -22px;
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  background: var(--cream);
+  z-index: 2;
+}
+.id-card .perf {
+  border-top: 2px dashed var(--ink);
+  margin: 0 14px;
+}
+
+/* the member page: the card hangs on the gym's brick wall */
+.member-wall {
+  background:
+    repeating-linear-gradient(to bottom, transparent 0 22px, #8e3423 22px 24px) top / 100% 96px no-repeat,
+    linear-gradient(#b5452e, #b5452e) top / 100% 96px no-repeat;
+  border-radius: 0 0 20px 20px;
+}
+
+/* Fees due, desk screens: WhatsApp open on a phone, Kabootar perched on its edge */
+.wa-phone {
+  position: relative;
+  padding: 12px;
+  border-radius: 36px;
+  background: var(--ink);
+  box-shadow: 0 6px 0 rgba(27, 26, 46, 0.35);
+  margin-top: 30px;
+}
+.wa-phone .wa-bird {
+  position: absolute;
+  right: 18px;
+  top: -44px;
+  pointer-events: none;
+}
+.wa-screen {
+  border-radius: 26px;
+  overflow: hidden;
+  background: #e9f6ee;
+  min-height: 420px;
+}
+.wa-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #0b7d47;
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+}
+.wa-chat {
+  padding: 14px;
+}
+.wa-chat > .flex {
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  border-radius: 16px 16px 16px 4px;
+  padding: 14px;
+}
+.wa-empty {
+  background: var(--paper);
+  border: 2px dashed var(--ink);
+  border-radius: 16px 16px 16px 4px;
+  padding: 14px;
+  font-size: 15px;
+  color: var(--muted-ink);
+}

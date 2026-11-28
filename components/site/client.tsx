@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { setCalm, useFx } from "@/lib/client/fx";
 import { lsSet } from "@/lib/client/idb";
-import { ACTIONS, SCENES, STOP_TIMES } from "@/lib/i18n/site";
+import { ACTIONS, SCENES, STOP_NOTE, STOP_TIMES } from "@/lib/i18n/site";
 import { streetBus, type StreetEvent } from "@/lib/client/bus";
 
 function Tx({ en, hi }: { en: string; hi: string }) {
@@ -130,8 +130,11 @@ export function SiteNav() {
             </Link>
           ))}
         </nav>
-        <div className="ml-auto hidden items-center gap-3 lg:flex">
-          <LangToggle cls="btn-ondark" />
+        {/* the two actions stay in the bar from tablet width up, so the next step is always on screen */}
+        <div className="ml-auto hidden items-center gap-3 md:flex">
+          <span className="hidden lg:inline-flex">
+            <LangToggle cls="btn-ondark" />
+          </span>
           {/* .lm-switch sets its own display, so the breakpoint lives on a wrapper */}
           <span className="hidden xl:inline-flex">
             <LessMotionSwitch />
@@ -143,7 +146,7 @@ export function SiteNav() {
             <Tx {...ACTIONS.start} />
           </CtaLink>
         </div>
-        <button ref={opener} type="button" className="btn btn-ondark ml-auto !min-h-11 lg:hidden" aria-expanded={open} aria-controls="kb-menu" onClick={() => setOpen(true)}>
+        <button ref={opener} type="button" className="btn btn-ondark ml-auto !min-h-11 md:ml-0 lg:hidden" aria-expanded={open} aria-controls="kb-menu" onClick={() => setOpen(true)}>
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden>
             <path d="M4 7h16M4 12h16M4 17h16" />
           </svg>
@@ -171,7 +174,14 @@ export function SiteNav() {
             <div className="mb-1 mt-3 text-[13px] font-semibold text-[var(--muted-ink)]">The street, stop by stop</div>
             {SCENES.map((s, i) => (
               <MenuLink key={s.id} href={`/#${s.id}`} onGo={() => setOpen(false)} small>
-                <span className="t-sign w-12 text-[12px]">{STOP_TIMES[i]}</span>
+                <span className="t-sign w-[76px] shrink-0 text-[12px] leading-tight">
+                  {STOP_TIMES[i]}
+                  {STOP_NOTE[i] && (
+                    <span className="block text-[10px] opacity-75">
+                      <Tx {...STOP_NOTE[i]!} />
+                    </span>
+                  )}
+                </span>
                 <Tx {...s.stop} />
               </MenuLink>
             ))}
@@ -209,9 +219,28 @@ function MenuLink({ href, children, onGo, small }: { href: string; children: Rea
   );
 }
 
+/** Phone only. Gone on Start and Sign in (those pages are the action), and it slides away while the
+ *  last stop's own buttons or the footer are on screen, so the two pairs never show at once. */
 export function ActionBar() {
+  const path = usePathname();
+  const [hide, setHide] = useState(false);
+  useEffect(() => {
+    const els = [document.getElementById("start"), document.querySelector("footer")].filter((x): x is HTMLElement => !!x);
+    if (!els.length || typeof IntersectionObserver === "undefined") return;
+    const seen = new Set<Element>();
+    const io = new IntersectionObserver(
+      (es) => {
+        es.forEach((e) => (e.isIntersecting ? seen.add(e.target) : seen.delete(e.target)));
+        setHide(seen.size > 0);
+      },
+      { threshold: 0 },
+    );
+    els.forEach((e) => io.observe(e));
+    return () => io.disconnect();
+  }, [path]);
+  if (path === "/start" || path === "/login") return null;
   return (
-    <div className="action-bar" role="region" aria-label="Main actions">
+    <div className="action-bar" role="region" aria-label="Main actions" data-hide={hide ? "1" : undefined}>
       <CtaLink href="/demo/desk" className="btn btn-primary">
         <Tx {...ACTIONS.demo} />
       </CtaLink>
@@ -222,17 +251,20 @@ export function ActionBar() {
   );
 }
 
-/** The map as a table of contents: 7 stops down the left edge on wide screens. */
+/** The map as a table of contents: 7 stops down the left edge on wide screens. The stop you are at
+ *  (or the one under the pointer) is named in a label under the rail, never over the page. The rail
+ *  steps aside at the last stop and the footer, where the page has its own buttons. */
 export function StopRail() {
-  const [active, setActive] = useState(0);
+  const [active, setActive] = useState(-1);
+  const [away, setAway] = useState(false);
   useEffect(() => {
     const secs = SCENES.map((s) => document.getElementById(s.id)).filter((x): x is HTMLElement => !!x);
     const ratios = new Map<Element, number>();
     const io = new IntersectionObserver(
       (es) => {
         es.forEach((e) => ratios.set(e.target, e.intersectionRatio));
-        let best = -1;
-        let bi = 0;
+        let best = 0;
+        let bi = -1;
         secs.forEach((s, i) => {
           const r = ratios.get(s) ?? 0;
           if (r > best) {
@@ -245,12 +277,25 @@ export function StopRail() {
       { threshold: [0, 0.2, 0.4, 0.6, 0.8, 1] },
     );
     secs.forEach((s) => io.observe(s));
-    return () => io.disconnect();
+    const ends = [document.getElementById("start"), document.querySelector("footer")].filter((x): x is HTMLElement => !!x);
+    const seen = new Set<Element>();
+    const io2 = new IntersectionObserver(
+      (es) => {
+        es.forEach((e) => (e.isIntersecting ? seen.add(e.target) : seen.delete(e.target)));
+        setAway(seen.size > 0);
+      },
+      { threshold: 0.25 },
+    );
+    ends.forEach((e) => io2.observe(e));
+    return () => {
+      io.disconnect();
+      io2.disconnect();
+    };
   }, []);
   return (
-    <nav className="stop-rail" aria-label="Stops on the street">
+    <nav className="stop-rail" aria-label="Stops on the street" data-away={away ? "1" : undefined}>
       {SCENES.map((s, i) => (
-        <a key={s.id} href={`#${s.id}`} aria-current={active === i ? "step" : undefined} aria-label={`Stop ${i + 1} of 7: ${s.stop.en}`}>
+        <a key={s.id} href={`#${s.id}`} aria-current={active === i ? "step" : undefined} aria-label={`Stop ${i + 1} of 7, ${STOP_TIMES[i]}${STOP_NOTE[i] ? ` (${STOP_NOTE[i]!.en})` : ""}: ${s.stop.en}`}>
           <span className="dot" aria-hidden>
             {i + 1}
           </span>
@@ -258,7 +303,12 @@ export function StopRail() {
             {STOP_TIMES[i]}
           </span>
           <span className="nm" aria-hidden>
-            <Tx {...s.stop} />
+            <b>{i + 1}</b> <Tx {...s.stop} />
+            {STOP_NOTE[i] && (
+              <span className="block text-[10px] font-semibold opacity-75">
+                <Tx {...STOP_NOTE[i]!} />
+              </span>
+            )}
           </span>
         </a>
       ))}

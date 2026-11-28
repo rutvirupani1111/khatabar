@@ -49,7 +49,7 @@ export function Settings() {
   if (!snap || !d)
     return (
       <AppScreen screen="settings" title="Settings" sentence={sentence} vignette="settings">
-        <div className="island-skel mx-auto w-full max-w-[900px]" aria-hidden>
+        <div className="island-skel mx-auto w-full max-w-[920px] !px-3 md:!px-6" aria-hidden>
           <i style={{ height: 300 }} />
         </div>
       </AppScreen>

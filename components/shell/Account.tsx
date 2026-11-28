@@ -1,7 +1,7 @@
 "use client";
 // Start for my gym, sign in, pairing a desk computer, and the owner's view of every branch.
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { Qr } from "@/components/art/Qr";
 import { Icon, KbMark } from "@/components/ui/Icon";
@@ -54,6 +54,16 @@ const DEFAULT_PLANS: { k: string; nameEn: string; nameHi: string; months: number
   { k: "y", nameEn: "Yearly", nameHi: "सालाना", months: 12, plate: "p25", fz: [3, 60, 7] },
 ];
 
+/** Tells the night street behind Sign in and Start how far the form has got (0 to max). */
+function useStreetStep(step: number, max: number) {
+  useEffect(() => {
+    const el = document.querySelector<HTMLElement>(".night-panel");
+    if (!el) return;
+    el.style.setProperty("--wake", String(Math.min(1, step / max)));
+    el.setAttribute("data-step", String(step));
+  }, [step, max]);
+}
+
 export function Start() {
   const router = useRouter();
   const [me, setMe] = useState<null | { user: { name: string; email: string } | null; org?: { name: string }; branches?: { id: string; name: string }[] }>(null);
@@ -102,10 +112,14 @@ export function Start() {
     setMade(r.branchId);
   };
 
-  if (!me) return <div className="skeleton h-[420px]" aria-hidden />;
+  // the shutter goes up one step for each field filled; the padlock opens when the gym is created
+  const filled = [acct.name, acct.gym, acct.city, acct.email.includes("@") ? acct.email : "", acct.password.length >= 8 ? acct.password : ""].filter((x) => x.trim()).length;
+  useStreetStep(me?.user ? 6 : busy ? 6 : filled, 6);
+
   if (made) return <PairPanel branchId={made} />;
 
-  if (!me.user)
+  // the sign-up form renders at once (on the server too); a signed-in owner sees setup when /me answers
+  if (!me || !me.user)
     return (
       <form
         className="flex flex-col gap-3"
@@ -287,16 +301,18 @@ function PairPanel({ branchId }: { branchId: string }) {
 
 export function Login() {
   const router = useRouter();
-  const sp = useSearchParams();
   const [f, setF] = useState({ email: "", password: "" });
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
+  // the night street wakes as the form fills: the signboard bulbs light, one field at a time
+  useStreetStep((f.email.includes("@") ? 1 : 0) + (f.password.length >= 1 ? 1 : 0) + (busy ? 1 : 0), 3);
   const go = async () => {
     setBusy(true);
     const r = await post("/api/auth/login", f);
     setBusy(false);
     if (r.error) return setErr(r.error);
-    const next = sp.get("next");
+    // read ?next= only when it is needed, so the form itself renders on the server
+    const next = new URLSearchParams(window.location.search).get("next");
     if (next && next.startsWith("/")) return router.push(next);
     const me = await (await fetch("/api/auth/me", { cache: "no-store" })).json();
     router.push(me.branches?.[0] ? `/g/${me.branches[0].id}/report` : "/start");

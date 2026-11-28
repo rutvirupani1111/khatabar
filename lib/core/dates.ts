@@ -71,7 +71,8 @@ export function planDays(start: string, months: number, days: number) {
 }
 
 const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const MON_HI = ["जन", "फ़र", "मार्च", "अप्रै", "मई", "जून", "जुला", "अग", "सित", "अक्टू", "नव", "दिस"];
+// the short forms Hindi papers print (the native-speaker review still has to confirm them)
+const MON_HI = ["जन.", "फ़र.", "मार्च", "अप्रैल", "मई", "जून", "जुलाई", "अग.", "सितं.", "अक्टू.", "नवं.", "दिसं."];
 
 export function fmtDay(date: string | null | undefined, lang: "en" | "hi" = "en") {
   if (!date) return "";

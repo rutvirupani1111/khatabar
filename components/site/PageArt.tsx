@@ -2,8 +2,9 @@
 // rate board (pricing) and Moti puzzled by a blank signboard (404).
 import type { ReactNode } from "react";
 import { Moti } from "@/components/world/characters/Moti";
+import { Ravi } from "@/components/world/characters/Ravi";
 import { Dots, INK, Star } from "@/components/world/kit";
-import { Pavement, Shopfront, Sky } from "@/components/world/places";
+import { ChaiStall, OpeningInside, Pavement, Shopfront, Sky } from "@/components/world/places";
 
 export function NightShop() {
   // Drawn at the scene 1 geometry: the night wall on the left (the form's notice is pasted there on
@@ -43,7 +44,7 @@ export function NightShop() {
         <path d="M585 302 H612 V306" fill="none" stroke={INK} strokeWidth="5" />
         <polygon points="612,330 520,780 704,780" fill="#FFC21A" opacity=".16" />
         <circle cx="612" cy="318" r="12" fill="#FFC21A" stroke={INK} strokeWidth="2.5" />
-        <Shopfront idp="night" shutter="down" padlock />
+        <Shopfront idp="night" shutter="down" padlock wake bulbs="wake" inside={<OpeningInside clock="5:29" />} />
         <Pavement />
         <rect x="1140" y="760" width="130" height="36" rx="14" fill="#C99A5B" stroke={INK} strokeWidth="2.5" />
         <path d="M1154 770 h10 M1176 770 h10 M1198 770 h10 M1220 770 h10 M1242 770 h10" stroke={INK} strokeWidth="1.5" />
@@ -83,11 +84,19 @@ function WallScene({ children, sign }: { children?: ReactNode; sign?: string }) 
   );
 }
 
+/** Pricing: the rate list hangs on the shop wall (the slate is the page's own card); Ravi points at
+ *  it from the pavement, and the chai stall is open next door. */
 export function PricingWall() {
   return (
-    <WallScene sign="FREE FOR ONE BRANCH">
-      <Moti kind="sit" x={1010} y={790} s={0.8} />
-      <use href="#pot-plant" x="1180" y="712" />
+    <WallScene>
+      <g stroke={INK} strokeWidth="2.5">
+        <path d="M720 300 V320" strokeWidth="3" />
+        <circle cx="720" cy="298" r="5" fill="#9AA6B2" />
+      </g>
+      <Ravi x={860} y={800} s={1.02} pose="one-sec" actor="pr-ravi" />
+      <ChaiStall />
+      <Moti kind="sit" x={1130} y={800} s={0.72} />
+      <use href="#pot-plant" x="980" y="712" />
     </WallScene>
   );
 }

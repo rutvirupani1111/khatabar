@@ -26,7 +26,7 @@ export function Finale() {
     ),
   } as CSSProperties;
   return (
-    <section id="start" data-scene="8" aria-labelledby="s8-title" className="scene wide cv finale" style={style}>
+    <section id="start" data-scene="8" aria-labelledby="s8-title" className="scene wide finale" style={style}>
       <div className="scene-art" aria-hidden>
         <div className="scene-crop">
           <Plane vh={640} cls="cam-zoom">
@@ -77,7 +77,7 @@ export function Finale() {
             <T v={FINALE.h2} />
           </h2>
           <div className="mt-4">
-            <TwoActions swap />
+            <TwoActions />
           </div>
           <p className="mt-3 text-[15px] font-semibold">
             <T v={FINALE.line} />

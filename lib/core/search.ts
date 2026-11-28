@@ -9,7 +9,11 @@ export function search(list: MemberState[], q: string): MemberState[] {
   if (/^\d{3,}$/.test(s.replace(/[\s+-]/g, ""))) {
     const d = digits.length > 10 ? digits.slice(-10) : digits;
     const ends = list.filter((x) => x.m.phone.endsWith(d));
-    const has = list.filter((x) => !x.m.phone.endsWith(d) && (x.m.phone.includes(d) || x.m.memberNo.replace(/\D/g, "").endsWith(d.padStart(4, "0"))));
+    const byNo = (x: MemberState) => x.m.memberNo.replace(/\D/g, "").endsWith(d.padStart(4, "0"));
+    // 3 or 4 digits are the end of a phone (or a member number), never "somewhere in the phone":
+    // a mistyped last 4 shows "No member matches", not a list of strangers
+    if (d.length <= 4) return [...ends, ...list.filter((x) => !x.m.phone.endsWith(d) && byNo(x))];
+    const has = list.filter((x) => !x.m.phone.endsWith(d) && (x.m.phone.includes(d) || byNo(x)));
     return [...ends, ...has];
   }
   if (/^[a-z]{2}-?\d+$/.test(s)) return list.filter((x) => x.m.memberNo.toLowerCase().replace("-", "") === s.replace("-", "") || x.m.memberNo.toLowerCase().startsWith(s));

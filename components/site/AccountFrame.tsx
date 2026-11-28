@@ -6,7 +6,7 @@ import { NightShop } from "./PageArt";
 
 export function AccountFrame({ children, aside }: { children: ReactNode; aside?: ReactNode }) {
   return (
-    <section className="relative">
+    <section className="acct relative">
       <div className="night-panel">
         <NightShop />
       </div>

@@ -7,6 +7,7 @@ import { useDerived, useGym, useSnap } from "@/components/shell/Gym";
 import { Icon } from "@/components/ui/Icon";
 import { Chip, chipsFor } from "@/components/ui/Status";
 import { useStore } from "@/lib/client/store";
+import { addDays } from "@/lib/core/dates";
 import { countedFrom, DENOMS, drawerFigures } from "@/lib/core/drawer";
 import { rupees, uid } from "@/lib/core/money";
 import { computeSlate, type Slate } from "@/lib/core/slate";
@@ -85,7 +86,11 @@ function CloseDay({ onSaved }: { onSaved: () => void }) {
         <p className="t-display text-[30px] leading-none">{rupees(fig.expected)}</p>
         <p className="mt-1 text-[13px] text-[var(--muted-ink)]">cash in the drawer. You are Sunita, the manager, closing tonight.</p>
         {maheshCash > 0 && <p className="mt-1 text-[14px] font-semibold">Includes Mahesh&apos;s {rupees(maheshCash)} from this morning.</p>}
-        {fig.expected === 0 && <p className="mt-1 text-[14px] font-semibold">No cash was taken today in this demo. Count ₹500 to see what a mismatch looks like.</p>}
+        {fig.expected > 0 ? (
+          <p className="mt-1 text-[14px] font-semibold">Count the notes below. Make it {rupees(fig.expected)} to see Matched, or {rupees(Math.max(0, fig.expected - 20000))} to see what a short drawer looks like.</p>
+        ) : (
+          <p className="mt-1 text-[14px] font-semibold">No cash was taken today. Count ₹500 to see what a mismatch looks like.</p>
+        )}
       </div>
       <ul className="flex flex-col">
         {[...DENOMS.map(String), "coins"].map((k) => (
@@ -147,8 +152,10 @@ function useCountUp(target: number, run: boolean) {
 
 type Line = "today" | "dues" | "upi" | "churn";
 
+/** The owner reads this at 6 am the next morning, so its "yesterday" is the day just counted. */
 function Report() {
-  const { today } = useGym();
+  const { today: closing } = useGym();
+  const today = addDays(closing, 1);
   const snap = useSnap()!;
   const [branch, setBranch] = useState<"all" | "LP" | "LV">("LP");
   const lv = useMemo(() => (branch === "LP" ? null : streetStoreLV()), [branch]);
@@ -241,7 +248,7 @@ function SlateView({ snaps, today }: { snaps: Snapshot[]; today: string }) {
   return (
     <div className="flex flex-col gap-3">
       <div className="slate on-dark p-4">
-        <p className="t-sign text-[13px] opacity-80">6:00 AM · Owner report</p>
+        <p className="t-sign text-[13px] opacity-80">6:00 AM next morning · Owner report</p>
         <ul className="mt-1">
           {row("Ending today", String(ending), "today")}
           {row(
@@ -249,7 +256,7 @@ function SlateView({ snaps, today }: { snaps: Snapshot[]; today: string }) {
             rupees(dues),
             "dues",
             <button type="button" className="btn btn-ondark btn-sm !min-h-9" onClick={() => goToScene("fees")}>
-              Send reminders
+              Send reminders (back at stop 3)
             </button>,
           )}
           {row(`Yesterday's takings (cash ${rupees(cash)}, UPI ${rupees(upiY)})`, rupees(takings))}

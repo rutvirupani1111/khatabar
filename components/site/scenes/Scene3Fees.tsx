@@ -13,7 +13,8 @@ export function Scene3Fees() {
   return (
     <Scene
       c={c}
-      crop={{ p: [104, 160, 776, 640], m: [0, 180, 1440, 590] }}
+      prop="chit"
+      crop={{ p: [104, 200, 776, 640], m: [0, 250, 1440, 590] }}
       ext={ext([
         ["#3E5BA9", 90],
         ["#FF6B4A", 180],
@@ -68,24 +69,37 @@ export function Scene3Fees() {
               <Kabootar x={720} y={252} s={1.15} actor="s3-kabootar" d={300} />
             </g>
             <Pavement />
-            {/* the chai stall from the side */}
+            {/* the morning newspaper stand: a green board, the papers clipped on its rack, bundles
+                still tied on the pavement */}
             <g stroke={INK} strokeWidth="2.5">
-              <path d="M120 540 V640 M340 540 V640" strokeWidth="5" />
-              <path d="M104 520 H360 L344 560 H120 Z" fill="#1565D8" />
-              <path d="M120 560 q14 14 28 0 q14 14 28 0 q14 14 28 0 q14 14 28 0 q14 14 28 0 q14 14 28 0 q14 14 28 0 q14 14 28 0" fill="#1565D8" />
-              <rect x="114" y="640" width="236" height="120" fill="#8A4B2A" />
-              <rect x="126" y="656" width="212" height="88" fill="#13A89E" />
-              <path d="M200 690 h46 v14 c0 14 -10 22 -23 22 c-13 0 -23 -8 -23 -22 z" fill="#FFF4DE" />
-              <circle cx="150" cy="780" r="22" fill={INK} />
-              <circle cx="150" cy="780" r="7" fill="#FFF4DE" />
-              <rect x="150" y="612" width="60" height="28" rx="3" fill={INK} />
-              <Use id="kettle" x={150} y={566} s={0.85} />
-              <Use id="glass" x={270} y={618} />
-              <Use id="glass" x={292} y={618} />
-            </g>
-            <g className="steam" stroke="#FFF4DE" strokeWidth="4" fill="none">
-              <path d="M170 560 c-8 -12 8 -22 0 -34 c-6 -10 4 -16 0 -24" />
-              <path d="M184 556 c-8 -12 8 -22 0 -34 c-6 -10 4 -16 0 -26" />
+              <path d="M118 520 V780 M346 520 V780" strokeWidth="6" />
+              <rect x="146" y="470" width="172" height="36" rx="5" fill="#FFC21A" />
+              <text x="232" y="496" textAnchor="middle" fontSize="20" fill={INK} stroke="none">
+                AKHBAR
+              </text>
+              <path d="M104 506 H360 L348 530 H116 Z" fill="#0B7D47" />
+              <rect x="116" y="530" width="232" height="210" fill="#8A4B2A" />
+              {[0, 1, 2].map((r) => (
+                <rect key={r} x="122" y={598 + r * 66} width="220" height="8" fill="#6A3820" />
+              ))}
+              {[0, 1, 2].flatMap((r) =>
+                [0, 1, 2, 3].map((c) => {
+                  const x = 128 + c * 53;
+                  const y = 546 + r * 66;
+                  const fills = ["#FFF4DE", "#F3F1E7", "#FFE7B8", "#B8E6F7"];
+                  return (
+                    <g key={`${r}-${c}`} transform={`rotate(${[-3, 2, -1, 3][(r + c) % 4]} ${x + 22} ${y + 26})`}>
+                      <rect x={x} y={y} width="44" height="54" fill={fills[(r * 2 + c) % 4]} strokeWidth="2" />
+                      <rect x={x + 5} y={y + 6} width="34" height="9" fill={["#D11F5C", "#1565D8", "#1B1A2E", "#0B7D47"][(r + c) % 4]} stroke="none" />
+                      <path d={`M${x + 5} ${y + 24} h34 M${x + 5} ${y + 32} h22 M${x + 5} ${y + 40} h30`} strokeWidth="1.5" />
+                    </g>
+                  );
+                }),
+              )}
+              <rect x="128" y="744" width="76" height="40" rx="3" fill="#F3F1E7" />
+              <path d="M128 756 h76 M128 768 h76 M166 744 v40" strokeWidth="2" />
+              <rect x="226" y="752" width="70" height="32" rx="3" fill="#FFF4DE" />
+              <path d="M226 764 h70 M261 752 v32" strokeWidth="2" />
             </g>
             <Use id="scooter" x={520} y={650} s={0.95} d={160} style={{ ["--scoot" as string]: "#1565D8" }} keep="scooter" />
             <Moti kind="stand" x={430} y={792} s={0.62} pose="walk" actor="s3-moti" />

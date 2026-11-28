@@ -8,14 +8,14 @@ import { AppScreen, useShell } from "@/components/shell/AppShell";
 import { useDerived, useGym, useGymState, useSnap } from "@/components/shell/Gym";
 import { message } from "@/components/shell/links";
 import { Sheet } from "@/components/shell/Overlays";
-import { setTourDone, Tour, tourDone } from "@/components/shell/Tour";
+import { setTourDone, Tour, TourInline, tourDone, type TourStep } from "@/components/shell/Tour";
 import { Icon } from "@/components/ui/Icon";
 import { Chip, chipsFor, DaysRing, Initials } from "@/components/ui/Status";
 import { EmptyArt } from "@/components/world/Vignettes";
 import { forceLite } from "@/lib/client/fx";
 import { lsGet, lsSet } from "@/lib/client/idb";
 import { undoPayment } from "@/lib/client/undo";
-import { fmtDate, fmtDay, fmtSpan, istClock, todayIST } from "@/lib/core/dates";
+import { addDays, fmtDate, fmtDay, fmtSpan, istClock, todayIST } from "@/lib/core/dates";
 import { rupees, uid } from "@/lib/core/money";
 import { search, uniqueByLast4 } from "@/lib/core/search";
 import { computeSlate } from "@/lib/core/slate";
@@ -31,7 +31,7 @@ type FilterKey = "all" | "today" | "week" | "dues" | "lapsed" | "frozen" | "wait
 const FILTERS: { k: FilterKey; label: string }[] = [
   { k: "all", label: "All" },
   { k: "today", label: "Ends today" },
-  { k: "week", label: "This week" },
+  { k: "week", label: "Ends within 7 days" },
   { k: "dues", label: "Owes money" },
   { k: "lapsed", label: "Ended" },
   { k: "frozen", label: "Frozen" },
@@ -80,7 +80,9 @@ function DeskInner() {
   const [queue, setQueue] = useState(false);
   const [last, setLast] = useState<Landed | null>(null);
   const [limit, setLimit] = useState(80);
-  const [tour, setTour] = useState(0);
+  const [tour, setTour] = useState<0 | TourStep>(0);
+  const [tourAmt, setTourAmt] = useState("");
+  const [newPhone, setNewPhone] = useState("");
   const [dismissedQ, setDismissedQ] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const lastG = useRef(0);
@@ -111,10 +113,12 @@ function DeskInner() {
 
   const counts = useMemo(() => {
     const c: Record<FilterKey, number> = { all: 0, today: 0, week: 0, dues: 0, lapsed: 0, frozen: 0, waiting: 0 };
+    // one 7-day window for this chip and the owner report: today plus the next 6 days
+    const wk = addDays(today, 6);
     for (const x of d?.list ?? []) {
       c.all++;
       if (x.endDate === today) c.today++;
-      if (x.daysLeft != null && x.daysLeft >= 0 && x.daysLeft <= 7) c.week++;
+      if (x.endDate && x.endDate >= today && x.endDate <= wk) c.week++;
       if (x.dues > 0) c.dues++;
       if (x.status === "lapsed") c.lapsed++;
       if (x.frozenNow) c.frozen++;
@@ -127,7 +131,7 @@ function DeskInner() {
     if (!d) return [];
     let l = d.list;
     if (filter === "today") l = l.filter((x) => x.endDate === today);
-    else if (filter === "week") l = l.filter((x) => x.daysLeft != null && x.daysLeft >= 0 && x.daysLeft <= 7);
+    else if (filter === "week") l = l.filter((x) => !!x.endDate && x.endDate >= today && x.endDate <= addDays(today, 6));
     else if (filter === "dues") l = l.filter((x) => x.dues > 0);
     else if (filter === "lapsed") l = l.filter((x) => x.status === "lapsed");
     else if (filter === "frozen") l = l.filter((x) => !!x.frozenNow);
@@ -149,10 +153,19 @@ function DeskInner() {
 
   // the tour moves on only when the real thing happens
   const maheshId = useMemo(() => d?.list.find((x) => x.m.phone.endsWith("4521"))?.m.id ?? null, [d]);
+  const maheshPending = (maheshId && d?.byId.get(maheshId)?.pending) || 0;
   useEffect(() => {
     if (tour === 1 && sel && sel === maheshId) setTour(2);
-    if (tour === 2 && view === "renew") setTour(3);
-  }, [tour, sel, maheshId, view]);
+    else if (tour === 2 && sel !== maheshId) setTour(1);
+    else if (tour === 2 && view === "renew") setTour(3);
+    else if (tour === 3 && view === "card") setTour(sel === maheshId ? 2 : 1);
+    // the money was marked as arrived somewhere else (the Waiting for money list)
+    else if (tour === "wait" && maheshPending === 0) setTour(4);
+  }, [tour, sel, maheshId, view, maheshPending]);
+  // the last step counts as done the moment it shows: a reload never starts the tour again
+  useEffect(() => {
+    if (tour === 4) setTourDone(true);
+  }, [tour]);
 
   const refocus = useCallback(() => {
     if (!narrow) setTimeout(() => searchRef.current?.focus({ preventScroll: true }), 0);
@@ -348,7 +361,17 @@ function DeskInner() {
 
   const onLanded = (l: Landed) => {
     setLast(l);
-    if (tour === 3) setTour(4);
+    if (tour === 3) {
+      // a UPI "Not yet" is not a renewal yet: the tour waits for the money, like the desk does
+      if (l.state === "waiting") {
+        setTourAmt(rupees(l.amount));
+        setTour("wait");
+      } else setTour(4);
+    }
+  };
+  const onFlowEvent = (e: "paid" | "waiting" | "undone" | "rejected") => {
+    if (e === "paid" && tour === "wait") setTour(4);
+    if ((e === "undone" || e === "rejected") && (tour === "wait" || tour === 4)) setTour(3);
   };
   const closeFlow = () => {
     setView("card");
@@ -396,6 +419,16 @@ function DeskInner() {
     } else drop();
   };
 
+  function skipTour() {
+    setTourDone(true);
+    setTour(0);
+  }
+  function toFees() {
+    setTourDone(true);
+    setTour(0);
+    router.push(`${base}/fees`);
+  }
+
   if (status === "error") return <ErrorPanel />;
   const slate = snap ? computeSlate(snap, today) : null;
   const todayLine = slate ? `Ending today ${slate.endingToday.length} · Owes money ${rupees(slate.dues.total)} · ${slate.checkinsToday} checked in` : "";
@@ -405,7 +438,7 @@ function DeskInner() {
   const cardZone = st ? (
     flowOpen ? (
       <section className="panel p-4" data-tour="flow">
-        <RenewFlow key={`${st.m.id}-${view}`} st={st} snap={snap!} duesOnly={view === "pay"} keyboard={!narrow} onCancel={closeFlow} onLanded={onLanded} onReceipt={sendReceipt} />
+        <RenewFlow key={`${st.m.id}-${view}`} st={st} snap={snap!} duesOnly={view === "pay"} keyboard={!narrow} onCancel={closeFlow} onLanded={onLanded} onReceipt={sendReceipt} onEvent={onFlowEvent} />
       </section>
     ) : (
       <MemberPanel st={st} snap={snap!} onAction={runAction} onMore={() => setOverlay("more")} keys={!narrow} />
@@ -460,7 +493,10 @@ function DeskInner() {
               </div>
             )}
             <label className="block">
-              <span className="label">Find a member</span>
+              <span className="label">
+                Find a member
+                {narrow && <span className="font-normal text-[var(--muted-ink)]"> by the last 4 digits of their phone, or their name</span>}
+              </span>
               <span className="relative mt-1 block">
                 <Icon name="search" size={22} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
@@ -469,8 +505,8 @@ function DeskInner() {
                   type="search"
                   inputMode="search"
                   autoComplete="off"
-                  className="input !min-h-14 !pl-11 !pr-16 text-[18px]"
-                  placeholder="Last 4 digits of phone, or name"
+                  className={`input !min-h-14 !pl-11 text-[18px] ${narrow ? "!pr-3" : "!pr-16"}`}
+                  placeholder={narrow ? "Phone last 4, or name" : "Last 4 digits of phone, or name"}
                   value={q}
                   onChange={(e) => {
                     setQ(e.target.value);
@@ -514,7 +550,27 @@ function DeskInner() {
                   <Row x={x} on={x.m.id === sel} focused={i === focus} q={q} onPick={() => pick(x.m.id)} dense={queue} />
                 </li>
               ))}
-              {!list.length && <li className="p-4 text-[15px]">{q ? `No member matches "${q}". Check the number, or add them with New member.` : "Nobody in this list today."}</li>}
+              {!list.length && (
+                <li className="flex flex-col items-start gap-2 p-4 text-[15px]">
+                  {q ? (
+                    <>
+                      <span>No member matches &ldquo;{q}&rdquo;. Check the number, or add them as a new member.</span>
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        onClick={() => {
+                          setNewPhone(/^\d+$/.test(q.trim()) ? q.trim() : "");
+                          setOverlay("new");
+                        }}
+                      >
+                        <Icon name="plus" size={18} /> Add as new member
+                      </button>
+                    </>
+                  ) : (
+                    "Nobody in this list today."
+                  )}
+                </li>
+              )}
             </ul>
             {list.length > limit && (
               <button type="button" className="btn self-start" onClick={() => setLimit((l) => l + 120)}>
@@ -532,7 +588,7 @@ function DeskInner() {
                   <p className="text-[17px] font-semibold">No member selected.</p>
                   <p className="text-[15px] text-[var(--muted-ink)]">Search above, or tap a name in the list.</p>
                   {mode === "demo" && (
-                    <button type="button" className="btn btn-sm" onClick={() => (setTourDone(false), setTour(1))}>
+                    <button type="button" className="btn btn-sm" onClick={() => (setTourDone(false), setTour(1), searchRef.current?.scrollIntoView({ block: "center" }))}>
                       New here? Show me the tour
                     </button>
                   )}
@@ -551,9 +607,10 @@ function DeskInner() {
       {/* phone and tablet: the card comes up as a sheet, its actions pinned at the bottom */}
       {narrow && st && (
         <MemberSheet onClose={() => (setSel(null), setView("card"), setDismissedQ(q.trim()))} title={st.m.name}>
+          {tour !== 0 && tour !== 1 && <TourInline step={tour} amount={tourAmt} name={st.m.name.split(" ")[0]} onSkip={skipTour} onDoIt={() => {}} onFees={toFees} />}
           {flowOpen ? (
             <div data-tour="flow">
-              <RenewFlow key={`${st.m.id}-${view}`} st={st} snap={snap!} duesOnly={view === "pay"} onCancel={closeFlow} onLanded={onLanded} onReceipt={sendReceipt} />
+              <RenewFlow key={`${st.m.id}-${view}`} st={st} snap={snap!} duesOnly={view === "pay"} onCancel={closeFlow} onLanded={onLanded} onReceipt={sendReceipt} onEvent={onFlowEvent} />
             </div>
           ) : (
             <>
@@ -567,7 +624,8 @@ function DeskInner() {
       {overlay === "new" && snap && (
         <NewMember
           snap={snap}
-          onCancel={() => setOverlay(null)}
+          prefill={newPhone}
+          onCancel={() => (setOverlay(null), setNewPhone(""))}
           onExisting={(id) => {
             setOverlay(null);
             pick(id);
@@ -582,23 +640,18 @@ function DeskInner() {
       {overlay === "present" && snap && d && <PresentSheet snap={snap} onClose={() => setOverlay(null)} onPick={(id) => (setOverlay(null), pick(id))} />}
       {overlay === "more" && st && snap && <MoreSheet st={st} snap={snap} onClose={() => setOverlay(null)} onEdit={() => setOverlay("edit")} />}
       {overlay === "edit" && st && <EditSheet st={st} onClose={() => setOverlay(null)} />}
-      {tour > 0 && (
+      {tour !== 0 && !(narrow && st) && (
         <Tour
           step={tour}
-          onSkip={() => {
-            setTourDone(true);
-            setTour(0);
-          }}
+          amount={tourAmt}
+          name={st?.m.name.split(" ")[0]}
+          onSkip={skipTour}
           onDoIt={() => {
             setQ("4521");
             setDismissedQ(null);
             searchRef.current?.focus({ preventScroll: true });
           }}
-          onFees={() => {
-            setTourDone(true);
-            setTour(0);
-            router.push(`${base}/fees`);
-          }}
+          onFees={toFees}
         />
       )}
     </AppScreen>
@@ -619,19 +672,19 @@ function Row({ x, on, focused, q, onPick, dense }: { x: MemberState; on: boolean
       type="button"
       onClick={onPick}
       aria-current={on ? "true" : undefined}
-      className={`flex w-full items-center gap-3 px-3 text-left ${dense ? "min-h-12" : "min-h-[52px] py-1.5"}`}
+      className={`flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-3 text-left ${dense ? "min-h-12" : "min-h-[52px] py-1.5"}`}
       style={{ background: on ? "var(--marigold-pale)" : focused ? "#f6ead0" : undefined, boxShadow: on ? "inset 4px 0 0 var(--saffron)" : focused ? "inset 4px 0 0 var(--ink)" : undefined }}
     >
       <Initials name={x.m.name} photo={x.m.photo} size={36} />
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[16px] font-semibold leading-tight">{x.m.name}</span>
         <span className="t-mono block text-[13px] text-[var(--muted-ink)]">
-          {x.m.memberNo} · <span className={digits.length >= 3 && x.m.phone.endsWith(digits) ? "rounded bg-[var(--marigold)] px-0.5 text-[var(--ink)]" : ""}>•••• {x.m.phone.slice(-4)}</span>
+          {x.m.memberNo} · <span className={`whitespace-nowrap ${digits.length >= 3 && x.m.phone.endsWith(digits) ? "rounded bg-[var(--marigold)] px-0.5 text-[var(--ink)]" : ""}`}>•••• {x.m.phone.slice(-4)}</span>
         </span>
       </span>
-      {!dense && <span className="hidden w-[110px] truncate text-[14px] xl:block">{planLabel(x)}</span>}
-      {!dense && <span className="hidden w-[118px] text-[14px] text-[var(--muted-ink)] sm:block">{x.endDate ? `Valid till ${fmtDay(x.endDate)}` : ""}</span>}
-      <span className="shrink-0">{c && <Chip {...c} />}</span>
+      {/* the chip already says the date, so the middle column says the plan */}
+      {!dense && <span className="hidden w-[118px] truncate text-[14px] text-[var(--muted-ink)] sm:block">{planLabel(x)}</span>}
+      <span className="shrink-0 max-[419px]:w-full max-[419px]:pl-12">{c && <Chip {...c} />}</span>
       <span className="sr-only">{x.endDate ? `Valid till ${fmtDate(x.endDate, today)}` : ""}</span>
     </button>
   );
@@ -648,11 +701,15 @@ function MemberPanel({ st, snap, onAction, onMore, keys, pinned }: { st: MemberS
     </button>,
     st.dues > 0 ? (
       <button key="p" type="button" className="btn btn-success" onClick={() => onAction("p")}>
-        <Icon name="rupee" size={18} /> Mark paid {rupees(st.dues)} {kc("P")}
+        <Icon name="rupee" size={18} />
+        <span className="flex flex-col items-start leading-tight">
+          <span>Mark paid {kc("P")}</span>
+          <span className="t-mono text-[12px] font-medium">{rupees(st.dues)}</span>
+        </span>
       </button>
     ) : null,
     pending ? (
-      <button key="u" type="button" className="btn" onClick={() => open("upi")}>
+      <button key="u" type="button" className="btn" data-tour="arrived" onClick={() => open("upi")}>
         <Icon name="clock" size={18} /> Money arrived?
       </button>
     ) : null,
@@ -695,9 +752,9 @@ function MemberPanel({ st, snap, onAction, onMore, keys, pinned }: { st: MemberS
           ))}
         </div>
         {st.m.notes && <p className="rounded-lg bg-[var(--marigold-pale)] px-3 py-2 text-[14px]">Note: {st.m.notes}</p>}
-        <div className={`grid gap-2 ${pinned ? "grid-cols-2" : "grid-cols-2 xl:grid-cols-3"}`}>{buttons}</div>
+        <div className={`grid gap-2 [&>.btn]:!px-3 ${pinned ? "grid-cols-2" : "grid-cols-2 xl:grid-cols-3"}`}>{buttons}</div>
         {mode === "demo" && (
-          <a className="text-[14px] font-semibold underline" href={`/demo/m/${st.m.memberNo}`} target="_blank" rel="noreferrer">
+          <a className="inline-flex min-h-11 items-center self-start pb-1 text-[14px] font-semibold underline underline-offset-4" href={`/demo/m/${st.m.memberNo}`} target="_blank" rel="noreferrer">
             See {st.m.name.split(" ")[0]}&apos;s phone card
           </a>
         )}
@@ -811,7 +868,7 @@ function MemberSheet({ title, children, onClose }: { title: string; children: Re
             <Icon name="close" size={16} /> Close
           </button>
         </div>
-        <div className="scroll-thin flex flex-col gap-3 overflow-y-auto px-4 pb-[calc(16px+env(safe-area-inset-bottom))] pt-2">{children}</div>
+        <div className="scroll-thin flex min-h-0 flex-col gap-3 overflow-y-auto overscroll-contain px-4 pb-[calc(16px+env(safe-area-inset-bottom))] pt-2 [&>*]:shrink-0">{children}</div>
       </div>
     </div>
   );

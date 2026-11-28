@@ -39,21 +39,26 @@ export function Pavement({ y = 780, h = 60 }: { y?: number; h?: number }) {
   );
 }
 
-/** The shop: brick facade, the marigold signboard with 12 bulbs, the opening and its shutter. */
+/** The shop: brick facade, the marigold signboard ringed with 16 marquee bulbs, the opening and
+ *  its shutter. bulbs: "seq" lights them one by one after the hero's shutter rolls up; "wake"
+ *  lights them as the Sign in / Start form fills (the page sets --wake from 0 to 1).
+ *  wake: the shutter rises with --wake too, showing the lit counter behind it. */
 export function Shopfront({
   shutter = "up",
   bulbs = "off",
   inside,
   padlock,
+  wake,
   idp,
 }: {
   shutter?: "anim" | "up" | "down";
-  bulbs?: "off" | "on" | "reveal";
+  bulbs?: "off" | "on" | "reveal" | "seq" | "wake";
   inside?: ReactNode;
   padlock?: boolean;
+  wake?: boolean;
   idp: string;
 }) {
-  const bulbXs = [690, 790, 890, 990, 1090, 1190];
+  const bulbXs = Array.from({ length: 8 }, (_, i) => Math.round(674 + i * 76));
   return (
     <g>
       <rect x="620" y="230" width="640" height="550" fill="#B5452E" stroke={INK} strokeWidth="2.5" />
@@ -67,11 +72,11 @@ export function Shopfront({
         </g>
       ))}
       {/* the opening */}
-      <rect x="700" y="460" width="480" height="320" fill={shutter === "down" ? "#13A89E" : "#FFE7B8"} stroke={INK} strokeWidth="2.5" />
-      {shutter !== "down" && inside}
+      <rect x="700" y="460" width="480" height="320" fill={shutter === "down" && !wake ? "#13A89E" : "#FFE7B8"} stroke={INK} strokeWidth="2.5" />
+      {(shutter !== "down" || wake) && inside}
       {shutter !== "up" && (
         <g clipPath={`url(#${idp}-open)`}>
-          <g className={shutter === "anim" ? "hero-shutter" : undefined}>
+          <g className={shutter === "anim" ? "hero-shutter" : wake ? "wake-shutter" : undefined}>
             <rect x="700" y="460" width="480" height="302" fill="url(#kb-slats)" />
             <rect x="700" y="762" width="480" height="18" fill={INK} />
             <rect x="800" y="768" width="40" height="6" rx="3" fill="#FFF4DE" />
@@ -87,7 +92,7 @@ export function Shopfront({
             )}
             {padlock && (
               <g stroke={INK} strokeWidth="2.5">
-                <path d="M928 742 C928 720 952 720 952 742" fill="none" strokeWidth="5" />
+                <path className="shackle" d="M928 742 C928 720 952 720 952 742" fill="none" strokeWidth="5" />
                 <rect x="920" y="740" width="40" height="32" rx="6" fill="#FFC21A" />
                 <circle cx="940" cy="754" r="4" fill={INK} />
               </g>
@@ -117,9 +122,12 @@ export function Shopfront({
             <use href="#bulb" x={x} y={330} />
             <use href="#bulb" x={x} y={440} />
             {bulbs !== "off" && (
-              <g className={bulbs === "reveal" ? "bulb-on" : undefined} style={bulbs === "reveal" ? d(i * 120) : undefined}>
-                <circle cx={x} cy={330} r="5" fill="#FFC21A" stroke={INK} strokeWidth="1.5" />
-                <circle cx={x} cy={440} r="5" fill="#FFC21A" stroke={INK} strokeWidth="1.5" />
+              <g
+                className={bulbs === "reveal" ? "bulb-on" : bulbs === "seq" ? "bulb-seq" : bulbs === "wake" ? "wake-bulb" : undefined}
+                style={bulbs === "reveal" ? d(i * 120) : bulbs === "seq" ? d(1050 + i * 70) : bulbs === "wake" ? ({ "--i": i } as CSSProperties) : undefined}
+              >
+                <circle cx={x} cy={330} r="6" fill="#FFC21A" stroke={INK} strokeWidth="1.5" />
+                <circle cx={x} cy={440} r="6" fill="#FFC21A" stroke={INK} strokeWidth="1.5" />
               </g>
             )}
           </g>

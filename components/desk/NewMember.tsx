@@ -8,9 +8,10 @@ import { useGym } from "@/components/shell/Gym";
 import { Sheet } from "@/components/shell/Overlays";
 import { Icon } from "@/components/ui/Icon";
 
-export function NewMember({ snap, onDone, onExisting, onCancel }: { snap: Snapshot; onDone: (id: string) => void; onExisting: (id: string) => void; onCancel: () => void }) {
+export function NewMember({ snap, onDone, onExisting, onCancel, prefill = "" }: { snap: Snapshot; onDone: (id: string) => void; onExisting: (id: string) => void; onCancel: () => void; prefill?: string }) {
   const { store } = useGym();
-  const [phone, setPhone] = useState("");
+  // from "Add as new member" under an empty search: the digits typed so far start the phone box
+  const [phone, setPhone] = useState(prefill);
   const [name, setName] = useState("");
   const [consent, setConsent] = useState(true);
   const [photo, setPhoto] = useState<string | null>(null);

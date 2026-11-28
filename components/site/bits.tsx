@@ -20,9 +20,37 @@ export function stopOf(n: number): Bi {
   return { en: ACTIONS.stopOf.en.replace("{n}", String(n)), hi: ACTIONS.stopOf.hi.replace("{n}", String(n)) };
 }
 
-export function CaptionCard({ c, timeLabel, link }: { c: SceneCopy; timeLabel?: ReactNode; link?: boolean }) {
+export type Prop = "slate" | "chit" | "mirror" | "glass" | "lamp" | "ledger";
+
+/** The bits of a prop that are drawn, not written: the chalk, the peg, the push bar, the lamp. */
+function PropBits({ prop }: { prop?: Prop }) {
+  if (prop === "slate") return <span className="chalk" aria-hidden />;
+  if (prop === "chit") return <span className="peg" aria-hidden />;
+  if (prop === "glass")
+    return (
+      <>
+        <span className="bar" aria-hidden />
+        <span className="welcome" aria-hidden>
+          WELCOME
+        </span>
+      </>
+    );
+  if (prop === "lamp")
+    return (
+      <svg className="lamp" viewBox="0 0 120 52" aria-hidden>
+        <circle className="glow" cx="60" cy="44" r="40" fill="#FFE3A3" opacity=".22" />
+        <path d="M60 0 V18" stroke="#1B1A2E" strokeWidth="3" />
+        <path d="M38 34 Q60 10 82 34 Z" fill="#0B7D47" stroke="#1B1A2E" strokeWidth="2.5" strokeLinejoin="round" />
+        <circle cx="60" cy="36" r="6" fill="#FFF1C9" stroke="#1B1A2E" strokeWidth="2" />
+      </svg>
+    );
+  return null;
+}
+
+export function CaptionCard({ c, timeLabel, link, prop }: { c: SceneCopy; timeLabel?: ReactNode; link?: boolean; prop?: Prop }) {
   return (
-    <div className="caption">
+    <div className="caption" data-prop={prop}>
+      <PropBits prop={prop} />
       <div className="flex flex-wrap items-center gap-3">
         <span className="time-pill" data-time>
           {timeLabel ?? `${c.time} ${Number(c.time.split(":")[0]) >= 9 && c.n === 6 ? "PM" : "AM"}`}
@@ -92,16 +120,17 @@ export function ext(stops: [string, number][], vh = 840): string {
  * HTML laid over the art (scene 4's glass door), kept out of the caption column.
  * The demo's own footer carries "Do this in the full demo desk", so the caption card does not repeat it.
  */
-export function Scene({ c, crop, ext: bg, art, side, deco, demo, demoCls = "", cls = "", vh, style }: { c: SceneCopy; crop: Crop; ext: string; art: ReactNode; side?: ReactNode; deco?: ReactNode; demo: ReactNode; demoCls?: string; cls?: string; vh?: number; style?: CSSProperties }) {
+export function Scene({ c, crop, ext: bg, art, side, deco, demo, demoCls = "", cls = "", vh, style, prop, over }: { c: SceneCopy; crop: Crop; ext: string; art: ReactNode; side?: ReactNode; deco?: ReactNode; demo: ReactNode; demoCls?: string; cls?: string; vh?: number; style?: CSSProperties; prop?: Prop; over?: ReactNode }) {
   return (
-    <section id={c.id} data-scene={c.n} aria-labelledby={`s${c.n}-title`} className={`scene wide cv ${cls}`} style={{ ...cropVars(crop, vh), "--ext": bg, ...style } as CSSProperties}>
+    <section id={c.id} data-scene={c.n} aria-labelledby={`s${c.n}-title`} className={`scene wide grow ${cls}`} style={{ ...cropVars(crop, vh), "--ext": bg, ...style } as CSSProperties}>
       <div className="scene-art" aria-hidden>
         <div className="scene-crop">{art}</div>
+        {over}
       </div>
       <div className="scene-ui">
         {deco}
         <div className="caption-col">
-          <CaptionCard c={c} />
+          <CaptionCard c={c} prop={prop} />
           {side}
         </div>
         <div className={`demo-slot ${demoCls}`} data-demo-slot>

@@ -116,6 +116,15 @@
   padding: 0 8px;
   font-size: 15px;
 }
+.action-bar[data-hide="1"] {
+  transform: translateY(110%);
+}
+.action-bar {
+  transition: transform var(--med) var(--ease-out);
+}
+[data-fx="calm"] .action-bar {
+  transition: none;
+}
 @media (min-width: 768px) {
   .action-bar {
     display: none;
@@ -196,7 +205,10 @@ main section[id] {
   }
 }
 
-/* Wide: the world fills the section, the caption card and the demo sit over it */
+/* Wide: the world fills the section, the caption card and the demo sit over it. A scene is at
+   least one screen tall and grows to fit its demo, so no button ever hides in an inner scroll box.
+   The art is anchored on its ground (planes use xMinYMax slice): a taller scene shows more sky
+   and the pavement, never a cut through someone's feet. */
 @media (min-width: 1280px) {
   .scene + .scene {
     margin-top: 0;
@@ -204,6 +216,11 @@ main section[id] {
   .scene.wide {
     height: clamp(720px, calc(100svh - 64px), 900px);
     overflow: hidden;
+  }
+  .scene.wide.grow {
+    height: auto;
+    min-height: clamp(720px, calc(100svh - 64px), 900px);
+    overflow: clip;
   }
   .scene.wide .scene-art {
     position: absolute;
@@ -232,6 +249,36 @@ main section[id] {
   }
   .scene.wide .scene-ui > * {
     pointer-events: auto;
+  }
+  /* growing scenes: the caption and the demo are two columns in the flow */
+  .scene.wide.grow .scene-ui {
+    position: relative;
+    inset: auto;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 32px;
+    min-height: inherit;
+    padding: 40px max(48px, calc((100% - 1440px) / 2 + 64px)) 56px max(104px, calc((100% - 1440px) / 2 + 104px));
+  }
+  .scene.wide.grow .scene-ui > .caption,
+  .scene.wide.grow .caption-col {
+    position: relative;
+    left: auto;
+    top: auto;
+    width: 440px;
+    flex: none;
+  }
+  .scene.wide.grow .demo-slot {
+    position: relative;
+    right: auto;
+    top: auto;
+    bottom: auto;
+    width: 440px;
+    flex: none;
+  }
+  .scene.wide.grow .demo-slot.center {
+    align-self: center;
   }
   .scene.wide .caption {
     position: absolute;
@@ -264,7 +311,8 @@ main section[id] {
   }
 }
 @media (min-width: 1440px) {
-  .scene.wide .demo-slot {
+  .scene.wide .demo-slot,
+  .scene.wide.grow .demo-slot {
     width: 480px;
   }
 }
@@ -448,16 +496,10 @@ main section[id] {
 .frame-wide {
   display: contents;
 }
-@media (min-width: 1280px) {
-  .scene.wide .demo-slot .phone-frame.wide-only {
-    max-height: 100%;
-    display: flex;
-    flex-direction: column;
-  }
-  .scene.wide .demo-slot .phone-frame.wide-only > .screen {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow-y: auto;
+/* the notch needs a strip of screen under it; with no frame drawn (phones) there is no strip */
+@media (min-width: 768px) {
+  .phone-frame.md-up > .screen {
+    padding-top: 16px;
   }
 }
 @media (max-width: 1279px) {
@@ -504,8 +546,6 @@ main section[id] {
 }
 .scene.wide .demo-scroll {
   min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
 }
 .demo-foot {
   align-self: flex-start;
@@ -583,29 +623,39 @@ main section[id] {
   white-space: nowrap;
 }
 
-/* the stop rail (Wide only) */
+/* the stop rail (Wide only). It sits in the 104px gutter left of every caption; the name of the
+   stop you are at shows in one label under the rail, so nothing ever opens over the page. */
 .stop-rail {
   position: fixed;
-  left: 16px;
+  left: 10px;
   top: 50%;
   z-index: 40;
   transform: translateY(-50%);
   display: none;
   flex-direction: column;
-  gap: 10px;
+  align-items: center;
+  gap: 8px;
+  width: 84px;
+  transition:
+    opacity var(--fast) linear,
+    visibility 0s linear var(--fast);
 }
 @media (min-width: 1280px) {
   .stop-rail {
     display: flex;
   }
 }
+.stop-rail[data-away="1"] {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
 .stop-rail a {
-  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  width: 56px;
+  width: 84px;
 }
 .stop-rail .dot {
   display: grid;
@@ -623,8 +673,9 @@ main section[id] {
 }
 .stop-rail .tm {
   font-family: var(--font-sign);
-  font-size: 11px;
+  font-size: 10px;
   line-height: 1;
+  white-space: nowrap;
   color: var(--ink);
   background: var(--cream);
   padding: 2px 4px;
@@ -633,36 +684,37 @@ main section[id] {
 .stop-rail a[aria-current="step"] .dot {
   background: var(--saffron);
 }
+.stop-rail a:hover .dot {
+  background: var(--marigold);
+}
 .stop-rail .nm {
   position: absolute;
-  left: 50px;
-  top: 6px;
-  white-space: nowrap;
+  left: 0;
+  top: calc(100% + 10px);
+  width: 84px;
   background: var(--cream);
   border: 2px solid var(--ink);
-  border-radius: 999px;
-  padding: 3px 10px;
+  border-radius: 10px;
+  box-shadow: 0 2px 0 var(--ink);
+  padding: 4px 6px;
   font-weight: 600;
-  font-size: 13px;
+  font-size: 12px;
+  line-height: 1.2;
+  text-align: center;
+  color: var(--ink);
   opacity: 0;
-  transform: translateX(-4px);
-  transition:
-    opacity var(--fast),
-    transform var(--fast);
   pointer-events: none;
+  transition: opacity var(--fast) linear;
 }
+.stop-rail a[aria-current="step"] .nm,
 .stop-rail a:hover .nm,
 .stop-rail a:focus-visible .nm {
   opacity: 1;
-  transform: none;
-  z-index: 5;
 }
-/* the active stop's name stays out only where it clears the caption card (card left >= 236px) */
-@media (min-width: 1704px) {
-  .stop-rail a[aria-current="step"] .nm {
-    opacity: 1;
-    transform: none;
-  }
+/* pointing at another stop names that one instead */
+.stop-rail:hover a[aria-current="step"]:not(:hover) .nm,
+.stop-rail:focus-within a[aria-current="step"]:not(:focus-visible):not(:hover) .nm {
+  opacity: 0;
 }
 
 /* menu sheet (phone) */
@@ -675,15 +727,11 @@ main section[id] {
   padding: 12px 16px calc(24px + env(safe-area-inset-bottom));
 }
 
-/* content-visibility for scenes below the hero */
-.scene.cv {
+/* content-visibility on the art box only: its size comes from its own CSS (aspect ratio on phones,
+   the scene's height on wide screens), never from the drawing, so skipping the drawing off screen
+   can never move the page */
+.scene:not(.hero) .scene-crop {
   content-visibility: auto;
-  contain-intrinsic-size: auto 1200px;
-}
-@media (min-width: 1280px) {
-  .scene.cv {
-    contain-intrinsic-size: auto 900px;
-  }
 }
 
 /* ---------------------------------------------------------------- characters */
@@ -1776,13 +1824,7 @@ html[data-js] .scene[data-on="0"] .card-reveal {
 }
 @media (min-width: 1280px) {
   .scene.wide .demo-slot {
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    scrollbar-width: thin;
     padding-bottom: 6px;
-  }
-  .scene.wide .demo-slot:has(.phone-frame.wide-only) {
-    overflow: visible;
   }
 }
 
@@ -1810,9 +1852,14 @@ html[data-js] .scene[data-on="0"] .card-reveal {
   transform: translateX(-65%);
 }
 @media (min-width: 1024px) {
+  /* the night street runs the full height of the page section, down to the footer, however tall
+     the form grows */
+  .acct {
+    min-height: calc(100svh - 64px);
+  }
   .night-panel {
-    position: fixed;
-    top: 64px;
+    position: absolute;
+    top: 0;
     bottom: 0;
     right: 0;
     width: 46%;
@@ -1867,5 +1914,561 @@ html[data-js] .scene[data-on="0"] .card-reveal {
     height: 100%;
     aspect-ratio: auto;
     transform: none;
+  }
+}
+
+/* ---------------------------------------------------------------- the words on in-world props
+   Every stop's caption is a thing that belongs in that place: a chalk slate on the counter, a
+   paper chit on the fees string, the gym mirror, the glass door, a lit card under the night lamp,
+   the old register. Same words and parts, a different material each time. */
+.caption[data-prop],
+.scene.wide .caption-col > .caption[data-prop] {
+  position: relative;
+}
+/* stop 2: the slate on the counter */
+.caption[data-prop="slate"] {
+  background: var(--slate);
+  color: var(--chalk-w);
+  border-radius: 10px;
+  box-shadow:
+    0 0 0 8px var(--wood),
+    0 0 0 10px var(--ink),
+    0 12px 0 10px var(--ink);
+  margin: 10px 10px 22px;
+}
+.caption[data-prop="slate"] .text-\[var\(--muted-ink\)\] {
+  color: rgba(243, 241, 231, 0.78);
+}
+.caption[data-prop="slate"] .time-pill {
+  background: var(--marigold);
+  color: var(--ink);
+}
+.caption[data-prop="slate"] .try-it {
+  border-left-color: var(--marigold);
+}
+.caption[data-prop="slate"] a {
+  color: var(--chalk-w);
+}
+.caption[data-prop="slate"] .chalk {
+  position: absolute;
+  right: 22px;
+  bottom: -18px;
+  width: 34px;
+  height: 8px;
+  border-radius: 3px;
+  background: var(--chalk-w);
+  border: 1.5px solid var(--ink);
+}
+/* stop 3: a chit pegged on the fees string */
+.caption[data-prop="chit"] {
+  background: var(--paper);
+  border-radius: 4px;
+  transform: rotate(-1deg);
+  margin-top: 14px;
+}
+.caption[data-prop="chit"] .peg {
+  position: absolute;
+  top: -22px;
+  left: 50%;
+  width: 14px;
+  height: 38px;
+  margin-left: -7px;
+  border: 2px solid var(--ink);
+  border-radius: 3px;
+  background: var(--wood);
+}
+.caption[data-prop="chit"]::after {
+  content: "";
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 28px;
+  height: 28px;
+  background: linear-gradient(135deg, var(--marigold-pale) 0 50%, var(--cream) 50%);
+  border-top: 2px solid var(--ink);
+  border-left: 2px solid var(--ink);
+  border-radius: 0 0 4px 0;
+}
+/* stop 4: the gym mirror, steel frame and two streaks of light */
+.caption[data-prop="mirror"] {
+  background: #eef8fc;
+  border: 0;
+  border-radius: 6px;
+  box-shadow:
+    0 0 0 10px var(--steel),
+    0 0 0 12px var(--ink),
+    0 14px 0 12px var(--ink);
+  margin: 12px 12px 26px;
+  overflow: hidden;
+}
+.caption[data-prop="mirror"]::before {
+  content: "";
+  position: absolute;
+  inset: -20% auto auto 46%;
+  width: 70px;
+  height: 160%;
+  transform: rotate(32deg);
+  background: linear-gradient(90deg, transparent 0 14px, rgba(255, 255, 255, 0.85) 14px 26px, transparent 26px 44px, rgba(255, 255, 255, 0.85) 44px 50px, transparent 50px);
+  pointer-events: none;
+}
+.caption[data-prop="mirror"] > * {
+  position: relative;
+}
+/* stop 5: the glass door, a steel push bar and the WELCOME strip */
+.caption[data-prop="glass"] {
+  background: rgba(238, 248, 252, 0.96);
+  border: 0;
+  border-radius: 4px;
+  box-shadow:
+    0 0 0 7px var(--steel),
+    0 0 0 9px var(--ink),
+    0 11px 0 9px var(--ink);
+  margin: 9px 9px 22px;
+  padding-right: 44px;
+  padding-bottom: 40px;
+}
+.caption[data-prop="glass"] .bar {
+  position: absolute;
+  right: 12px;
+  top: 30%;
+  width: 12px;
+  height: 34%;
+  border-radius: 6px;
+  background: var(--steel);
+  border: 2px solid var(--ink);
+}
+.caption[data-prop="glass"] .welcome {
+  position: absolute;
+  left: 20px;
+  bottom: 10px;
+  padding: 2px 12px;
+  background: var(--rani);
+  color: var(--cream);
+  border: 2px solid var(--ink);
+  border-radius: 3px;
+  font-family: var(--font-sign);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+}
+/* stop 6: a card under the night lamp; at 6 am it is daylight again */
+.caption[data-prop="lamp"] {
+  background: #24286a;
+  color: var(--cream);
+  margin-top: 46px;
+  transition:
+    background-color var(--slow) linear,
+    color var(--slow) linear;
+}
+.caption[data-prop="lamp"] .text-\[var\(--muted-ink\)\] {
+  color: rgba(255, 244, 222, 0.8);
+}
+.caption[data-prop="lamp"] .time-pill {
+  background: var(--marigold);
+  color: var(--ink);
+}
+.caption[data-prop="lamp"] a {
+  color: var(--cream);
+}
+.caption[data-prop="lamp"] .lamp {
+  position: absolute;
+  left: 50%;
+  top: -48px;
+  width: 120px;
+  height: 52px;
+  margin-left: -60px;
+  pointer-events: none;
+}
+[data-beat="morning"] .caption[data-prop="lamp"] {
+  background: var(--cream);
+  color: var(--ink);
+}
+[data-beat="morning"] .caption[data-prop="lamp"] .text-\[var\(--muted-ink\)\] {
+  color: var(--muted-ink);
+}
+[data-beat="morning"] .caption[data-prop="lamp"] a {
+  color: var(--ink);
+}
+[data-beat="morning"] .caption[data-prop="lamp"] .lamp .glow {
+  opacity: 0;
+}
+/* stop 7: the old register, cloth spine and ruled pages */
+.caption[data-prop="ledger"] {
+  background-color: var(--paper);
+  background-image: repeating-linear-gradient(to bottom, transparent 0 26px, rgba(21, 101, 216, 0.16) 26px 27px);
+  border-left: 22px solid var(--rani);
+  border-radius: 6px 14px 14px 6px;
+  transform: rotate(-0.6deg);
+}
+.caption[data-prop="ledger"]::before {
+  content: "";
+  position: absolute;
+  left: -14px;
+  top: 10px;
+  bottom: 10px;
+  border-left: 2px dashed var(--cream);
+}
+.caption[data-prop="ledger"]::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  top: 0;
+  bottom: 0;
+  border-left: 2px solid rgba(209, 31, 92, 0.45);
+}
+[data-fx="calm"] .caption[data-prop] {
+  transition: none;
+}
+
+/* phones and tablets: the prop overlaps the bottom of the art like a sign hung over the street,
+   not a separate card under it */
+@media (max-width: 1279px) {
+  .scene.grow .scene-ui {
+    margin-top: -26px;
+  }
+  .scene.grow .caption[data-prop="lamp"] {
+    margin-top: 40px;
+  }
+  .scene.grow:has(.caption[data-prop="lamp"]) .scene-ui {
+    margin-top: -64px;
+  }
+}
+
+/* ---------------------------------------------------------------- moving between stops
+   Scroll-driven, full motion only, and nothing here touches layout: a camera pan along the street,
+   the glass doors parting into stop 5, the lights going down into the night at stop 6, and on
+   phones each stop's picture rolling up like a shutter. Less motion shows every stop as it is. */
+.scene-doors {
+  display: none;
+}
+@supports (animation-timeline: view()) {
+  @media (min-width: 1280px) {
+    html[data-fx="full"] .scene.grow .scene-crop {
+      animation:
+        kb-pan-in linear both,
+        kb-pan-out linear forwards;
+      animation-timeline: view(), view();
+      animation-range:
+        entry 0% cover 45%,
+        exit 0% exit 100%;
+    }
+    html[data-fx="full"] .scene-doors {
+      display: block;
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      perspective: 1400px;
+    }
+    html[data-fx="full"] .scene-doors i {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 50.5%;
+      background: rgba(184, 230, 247, 0.92);
+      border: 10px solid var(--steel);
+      box-shadow: inset 0 0 0 2px var(--ink);
+      animation: kb-door-l linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 90%;
+    }
+    html[data-fx="full"] .scene-doors i.l {
+      left: 0;
+      transform-origin: left center;
+    }
+    html[data-fx="full"] .scene-doors i.r {
+      right: 0;
+      transform-origin: right center;
+      animation-name: kb-door-r;
+    }
+    html[data-fx="full"] .scene-doors i::after {
+      content: "";
+      position: absolute;
+      top: 38%;
+      width: 14px;
+      height: 22%;
+      border-radius: 7px;
+      background: var(--steel);
+      border: 2px solid var(--ink);
+    }
+    html[data-fx="full"] .scene-doors i.l::after {
+      right: 18px;
+    }
+    html[data-fx="full"] .scene-doors i.r::after {
+      left: 18px;
+    }
+    html[data-fx="full"] .dim-out .scene-art::after,
+    html[data-fx="full"] .dim-in .scene-art::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      background: #0f1030;
+      pointer-events: none;
+      opacity: 0;
+    }
+    html[data-fx="full"] .dim-out .scene-art::after {
+      animation: kb-dim linear both;
+      animation-timeline: view();
+      animation-range: exit 0% exit 100%;
+    }
+    html[data-fx="full"] .dim-in .scene-art::after {
+      animation: kb-undim linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 80%;
+    }
+  }
+  @media (max-width: 1279px) {
+    html[data-fx="full"] .scene.grow .scene-crop {
+      animation: kb-roll linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 75%;
+    }
+  }
+}
+@keyframes kb-pan-in {
+  from {
+    transform: translateX(6%);
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes kb-pan-out {
+  from {
+    transform: none;
+  }
+  to {
+    transform: translateX(-6%);
+  }
+}
+@keyframes kb-door-l {
+  from {
+    transform: rotateY(0);
+  }
+  to {
+    transform: rotateY(-96deg);
+    visibility: hidden;
+  }
+}
+@keyframes kb-door-r {
+  from {
+    transform: rotateY(0);
+  }
+  to {
+    transform: rotateY(96deg);
+    visibility: hidden;
+  }
+}
+@keyframes kb-dim {
+  to {
+    opacity: 0.7;
+  }
+}
+@keyframes kb-undim {
+  from {
+    opacity: 0.7;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@keyframes kb-roll {
+  from {
+    clip-path: inset(100% 0 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+/* ---------------------------------------------------------------- hero: the notice is pasted up
+   after the shutter clears. Transform only, so the words are on screen (and measured) from the
+   first frame; under 600ms in all. */
+.notice .tape.l {
+  --tr: -8deg;
+}
+.notice .tape.r {
+  --tr: 8deg;
+}
+@media (min-width: 768px) {
+  html[data-fx="full"] .hero .notice {
+    animation: kb-notice 460ms var(--ease-pop) 980ms both;
+  }
+  html[data-fx="full"] .hero .notice .tape {
+    animation: kb-tape 220ms var(--ease-out) 1260ms both;
+  }
+  html[data-fx="full"] .hero .notice .hero-ctas {
+    animation: kb-settle 260ms var(--ease-out) 1320ms both;
+  }
+}
+@keyframes kb-notice {
+  from {
+    transform: translateY(-22px) rotate(-1.4deg);
+  }
+  60% {
+    transform: translateY(3px) rotate(0.3deg);
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes kb-tape {
+  from {
+    transform: scale(1.7) rotate(var(--tr));
+    opacity: 0;
+  }
+  to {
+    transform: rotate(var(--tr));
+    opacity: 0.45;
+  }
+}
+@keyframes kb-settle {
+  from {
+    transform: translateY(8px);
+  }
+  to {
+    transform: none;
+  }
+}
+/* the signboard bulbs light one by one once the shutter is up */
+.bulb-seq {
+  opacity: 0;
+  animation: kb-bulb-on 160ms linear var(--d, 0ms) both;
+}
+@keyframes kb-bulb-on {
+  to {
+    opacity: 1;
+  }
+}
+[data-fx="calm"] .bulb-seq,
+[data-fx="calm"] .hero .notice,
+[data-fx="calm"] .hero .notice .tape,
+[data-fx="calm"] .hero .hero-ctas {
+  animation: none !important;
+  opacity: unset;
+}
+[data-fx="calm"] .bulb-seq {
+  opacity: 1 !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-fx="full"]) .bulb-seq {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+/* short laptop screens: the whole notice, both buttons included, fits above the fold */
+@media (min-width: 1280px) {
+  .scene.wide.hero {
+    height: clamp(560px, calc(100svh - 64px), 900px);
+  }
+}
+@media (min-width: 1280px) and (max-height: 820px) {
+  .hero .notice {
+    top: 28px;
+    width: 520px;
+    padding: 24px 28px;
+  }
+  .hero .hero-h1 {
+    font-size: clamp(36px, 6.2vh, 56px);
+  }
+  .hero .hero-sub {
+    font-size: 16px;
+    line-height: 23px;
+  }
+}
+/* Devanagari is taller: the Hindi headline is set a size down so it keeps three lines */
+.hero-h1 .l-hi {
+  font-size: 0.84em;
+}
+
+/* ---------------------------------------------------------------- sign in and start wake the shop */
+.wake-shutter {
+  transform-box: fill-box;
+  transform: translateY(calc(var(--wake, 0) * -64%));
+  transition: transform 520ms var(--ease-out);
+}
+.wake-bulb {
+  opacity: clamp(0, calc(var(--wake, 0) * 9 - var(--i, 0)), 1);
+  transition: opacity 240ms linear;
+}
+.night-panel .shackle {
+  transform-box: fill-box;
+  transform-origin: 100% 100%;
+  transition: transform 400ms var(--ease-pop);
+}
+.night-panel[data-step="6"] .shackle {
+  transform: translateY(-6px) rotate(-28deg);
+}
+[data-fx="calm"] .wake-shutter,
+[data-fx="calm"] .wake-bulb,
+[data-fx="calm"] .night-panel .shackle {
+  transition: none;
+}
+
+/* pricing: the rate list is a chalk slate hung from a nail on the shop wall */
+.rate-slate {
+  position: relative;
+  background: var(--slate);
+  color: var(--chalk-w);
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+  box-shadow:
+    0 0 0 10px var(--wood),
+    0 0 0 12px var(--ink),
+    0 16px 0 12px var(--ink);
+  margin: 40px 12px 24px;
+}
+.rate-slate .nail {
+  position: absolute;
+  left: 50%;
+  top: -46px;
+  width: 0;
+  height: 0;
+}
+.rate-slate .nail::before {
+  content: "";
+  position: absolute;
+  left: -70px;
+  top: 10px;
+  width: 140px;
+  height: 26px;
+  border-top: 3px solid var(--ink);
+  border-left: 3px solid var(--ink);
+  border-right: 3px solid var(--ink);
+  border-radius: 70px 70px 0 0;
+  border-bottom: 0;
+}
+.rate-slate .nail::after {
+  content: "";
+  position: absolute;
+  left: -7px;
+  top: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--steel);
+  border: 2px solid var(--ink);
+}
+.rate-slate .price {
+  color: var(--marigold);
+}
+.rate-slate hr {
+  border-color: rgba(243, 241, 231, 0.55);
+}
+.rate-slate :focus-visible {
+  outline-color: var(--marigold);
+}
+
+/* stop 7 on phones: the rate board comes after the import demo, never between "Try it" and it */
+@media (max-width: 767px) {
+  #import .caption-col {
+    display: contents;
+  }
+  #import .demo-slot {
+    order: 2;
+  }
+  #import .rate-board {
+    order: 3;
   }
 }

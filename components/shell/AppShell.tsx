@@ -112,11 +112,16 @@ export function AppScreen({ screen, title, sentence, vignette, actions, children
           <div className="flex h-[52px] items-center gap-3 px-3 md:h-14 md:px-5">
             <Link href={mode === "demo" ? `/demo/desk${suffix}` : `${base}/desk`} className="flex min-w-0 items-center gap-2" style={{ viewTransitionName: "kb-logo" }}>
               <KbMark size={28} onDark />
-              <span className="t-display truncate text-[18px] font-bold md:text-[20px]" style={{ fontWeight: 700 }}>
+              <span className="t-display truncate py-0.5 text-[18px] font-bold leading-[1.3] md:text-[20px]" style={{ fontWeight: 700 }}>
                 {snap?.org.name ?? "Khatabar"}
               </span>
             </Link>
-            {snap && <BranchPicker />}
+            {/* on phones the branch picker lives in the More sheet, so the gym name keeps its room */}
+            {snap && (
+              <span className="hidden sm:flex">
+                <BranchPicker />
+              </span>
+            )}
             <div className="ml-auto flex items-center gap-2">
               {pending.length > 0 && (
                 <button type="button" className="chip chip-wait hidden !h-9 lg:inline-flex" onClick={() => setOverlay("upi")}>
@@ -189,10 +194,10 @@ export function AppScreen({ screen, title, sentence, vignette, actions, children
           <div className="flex min-h-10 flex-wrap items-center gap-x-3 gap-y-1 px-3 py-1 text-[14px] font-semibold md:px-5" style={{ background: "var(--marigold)", color: "var(--ink)", borderBottom: "2px solid var(--ink)" }} role="note">
             <span>{t.demoBanner}</span>
             <span className="ml-auto flex gap-2">
-              <Link href="/start" className="btn btn-sm !min-h-8 !bg-[var(--paper)]">
+              <Link href="/start" className="btn btn-sm demo-bar-btn !bg-[var(--paper)]">
                 {t.startMine}
               </Link>
-              <Link href="/" className="btn btn-sm !min-h-8 !bg-[var(--paper)] xl:hidden">
+              <Link href="/" className="btn btn-sm demo-bar-btn !bg-[var(--paper)] xl:hidden">
                 {t.exitDemo}
               </Link>
             </span>
@@ -209,7 +214,7 @@ export function AppScreen({ screen, title, sentence, vignette, actions, children
               </div>
               {actions && <div className="flex shrink-0 flex-wrap justify-end gap-2">{actions}</div>}
               {vignette && (
-                <div className="hidden h-[72px] w-[180px] shrink-0 overflow-hidden rounded-xl border-2 border-[var(--ink)] lg:block">
+                <div className="hidden h-[88px] w-[200px] shrink-0 overflow-hidden rounded-xl border-2 border-[var(--ink)] lg:block">
                   <Vignette kind={vignette} />
                 </div>
               )}
@@ -308,9 +313,9 @@ function MoreTab({ list, screen, t }: { list: { k: ScreenKey; href: string; labe
 function Menu({ label, icon, open, onOpen, onClose, children, iconOnly }: { label: string; icon: IconName; open: boolean; onOpen: () => void; onClose: () => void; children: ReactNode; iconOnly?: boolean }) {
   return (
     <div className="relative">
-      <button type="button" className="btn btn-ondark btn-sm !px-3" aria-expanded={open} aria-haspopup="menu" onClick={onOpen} aria-label={iconOnly ? label : undefined}>
+      <button type="button" className="btn btn-ondark btn-sm !px-3" aria-expanded={open} aria-haspopup="menu" onClick={onOpen} aria-label={label}>
         <Icon name={icon} size={18} />
-        {!iconOnly && <span className="hidden sm:inline">{label}</span>}
+        {!iconOnly && <span aria-hidden>{label}</span>}
       </button>
       {open && <Popover onClose={onClose}>{children}</Popover>}
     </div>
@@ -354,11 +359,16 @@ function MenuItem({ children, href, onClick, icon, cls = "", current }: { childr
   );
 }
 
-function BottomTabs({ list, screen, onMore, t }: { list: { k: ScreenKey; href: string; label: keyof Dict; icon: IconName }[]; screen: ScreenKey; onMore: () => void; t: Dict }) {
+/** The three screens the phone's bottom bar carries; the More sheet lists everything else. */
+function useTabKeys(): ScreenKey[] {
   const actor = useGymState((s) => s.actor);
   const { mode } = useGym();
   const owner = mode === "live" && (actor.role === "owner" || actor.role === "manager");
-  const want: ScreenKey[] = ["desk", "fees", owner ? "report" : "freeze"];
+  return ["desk", "fees", owner ? "report" : "freeze"];
+}
+
+function BottomTabs({ list, screen, onMore, t }: { list: { k: ScreenKey; href: string; label: keyof Dict; icon: IconName }[]; screen: ScreenKey; onMore: () => void; t: Dict }) {
+  const want = useTabKeys();
   const tabs = want.map((k) => list.find((s) => s.k === k)).filter((x): x is NonNullable<typeof x> => !!x);
   const inMore = !want.includes(screen);
   return (
@@ -379,9 +389,11 @@ function BottomTabs({ list, screen, onMore, t }: { list: { k: ScreenKey; href: s
 
 function MoreSheet({ list, screen, onClose, onOpen, pending }: { list: { k: ScreenKey; href: string; label: keyof Dict; icon: IconName }[]; screen: ScreenKey; onClose: () => void; onOpen: (o: "upi" | "close" | "keys") => void; pending: number }) {
   const { t, mode, lang, setLang, calm } = useGym();
+  const snap = useSnap();
   const ref = useRef<HTMLDivElement>(null);
   useFocusTrap(ref, onClose);
-  const rest = list.filter((s) => !["desk", "fees"].includes(s.k));
+  const tabs = useTabKeys();
+  const rest = list.filter((s) => !tabs.includes(s.k));
   return (
     <div className="fixed inset-0 z-[60] md:hidden">
       <div className="sheet-backdrop" onClick={onClose} />
@@ -392,6 +404,11 @@ function MoreSheet({ list, screen, onClose, onOpen, pending }: { list: { k: Scre
             <Icon name="close" size={18} /> Close
           </button>
         </div>
+        {snap && snap.branches.length > 1 && (
+          <div className="mb-3">
+            <BranchPicker />
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-2">
           {rest.map((s) => (
             <Link key={s.k} href={s.href} className="panel-flat flex min-h-14 items-center gap-2 px-3 text-[15px] font-semibold" aria-current={s.k === screen ? "page" : undefined} style={{ background: s.k === screen ? "var(--marigold-pale)" : undefined }}>

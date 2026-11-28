@@ -99,7 +99,8 @@ export function WorldDefs() {
           </g>
         </symbol>
         <symbol id="bulb" overflow="visible">
-          <circle r="5" fill="#FFF4DE" stroke={INK} strokeWidth="1.5" />
+          <circle r="6" fill="#FFF1C9" stroke={INK} strokeWidth="1.5" />
+          <path d="M-2.4 1 q1.2 -2.6 2.4 0 q1.2 2.6 2.4 0" fill="none" stroke="#C8792E" strokeWidth="1.1" />
         </symbol>
         <symbol id="trophy" overflow="visible">
           <g stroke={INK} strokeWidth="2.5" strokeLinejoin="round">
@@ -204,9 +205,11 @@ export function Use({ id, x, y, s, rot, style, d, cls, keep }: { id: string; x: 
 }
 
 /** A plane of the art. Every scene stacks three or four of these. */
-export function Plane({ children, cls = "", vh = 840 }: { children: ReactNode; cls?: string; vh?: number }) {
+export function Plane({ children, cls = "", vh = 840, anchor = "xMinYMax" }: { children: ReactNode; cls?: string; vh?: number; anchor?: "xMinYMax" | "xMidYMax" }) {
   return (
-    <svg className={`plane world ${cls}`} viewBox={`0 0 1440 ${vh}`} preserveAspectRatio="xMidYMin slice" aria-hidden focusable="false">
+    // anchored on the ground: when a wide scene is taller than the art, the sky is what gets
+    // cropped (and the right-hand side, which sits under the demo), never the pavement
+    <svg className={`plane world ${cls}`} viewBox={`0 0 1440 ${vh}`} preserveAspectRatio={`${anchor} slice`} aria-hidden focusable="false">
       {children}
     </svg>
   );

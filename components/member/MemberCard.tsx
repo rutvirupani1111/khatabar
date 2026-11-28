@@ -46,7 +46,7 @@ export function MemberCard({ memberNo, token, variant = "page" }: { memberNo?: s
           {mode === "demo" && <span className="ml-auto rounded-full bg-[var(--marigold)] px-2 py-0.5 text-[12px] font-bold text-[var(--ink)]">Demo</span>}
         </div>
       </header>
-      <main className="mx-auto flex max-w-[480px] flex-col gap-4 px-4 pt-4">{!snap || !st ? <Skeleton /> : <CardBody st={st} snap={snap} token={token} />}</main>
+      <main className="member-wall mx-auto flex max-w-[480px] flex-col gap-4 px-4 pt-4">{!snap || !st ? <Skeleton /> : <CardBody st={st} snap={snap} token={token} />}</main>
     </div>
   );
 }
@@ -105,47 +105,48 @@ function CardBody({ st, snap, token, embed }: { st: MemberState; snap: Snapshot;
   return (
     <div className={`flex flex-col gap-3 ${embed ? "p-4" : ""}`}>
       <LangSwitch />
-      {first && (
-        <svg viewBox="0 0 440 26" className="-mb-3 h-[26px] w-full" aria-hidden>
-          <rect x="10" y="4" width="420" height="20" rx="4" fill="#9AA6B2" stroke="#1B1A2E" strokeWidth="2.5" />
-          <path d="M30 14h380" stroke="#1B1A2E" strokeWidth="2" strokeDasharray="12 10" />
+      {/* the card hangs on a lanyard: the gym's own shopfront on top, the member in the middle,
+          the check-in QR printed on its lower half */}
+      <div className="id-card">
+        <svg className="lanyard" viewBox="0 0 120 46" aria-hidden>
+          <path d="M34 0 L52 30 M86 0 L68 30" stroke="#1B1A2E" strokeWidth="14" strokeLinecap="round" />
+          <path d="M34 0 L52 30 M86 0 L68 30" stroke={snap.branch.color} strokeWidth="9" strokeLinecap="round" />
+          <rect x="46" y="24" width="28" height="12" rx="4" fill="#9AA6B2" stroke="#1B1A2E" strokeWidth="2.5" />
+          <path d="M60 36 V46" stroke="#1B1A2E" strokeWidth="4" strokeLinecap="round" />
         </svg>
-      )}
-      <section className={`panel overflow-hidden ${first ? "card-in" : ""}`} aria-label={t.yourCard}>
-        <div className="h-2" style={{ background: snap.branch.color }} />
-        <div className="flex flex-col gap-3 p-4">
-          <p className="text-[13px] font-semibold text-[var(--muted-ink)]">
-            {snap.org.name} · {snap.branch.name}
-          </p>
-          <div className="flex items-start gap-3">
-            <Initials name={st.m.name} photo={st.m.photo} size={52} />
-            <div className="min-w-0 flex-1">
-              <h1 className="t-display text-[26px] leading-tight" style={{ fontWeight: 700 }}>
-                {st.m.name}
-              </h1>
-              <p className="text-[14px] text-[var(--muted-ink)]">
-                <span className="t-mono">{st.m.memberNo}</span> · {planLabel(st, lang)}
-              </p>
+        <section className={`card-face ${first ? "card-in" : ""}`} aria-label={t.yourCard}>
+          <ShopStrip name={snap.org.name} branch={snap.branch.name} color={snap.branch.color} />
+          <div className="flex flex-col gap-3 p-4">
+            <div className="flex items-start gap-3">
+              <Initials name={st.m.name} photo={st.m.photo} size={52} />
+              <div className="min-w-0 flex-1">
+                <h1 className="t-display text-[26px] leading-tight" style={{ fontWeight: 700 }}>
+                  {st.m.name}
+                </h1>
+                <p className="text-[14px] text-[var(--muted-ink)]">
+                  <span className="t-mono">{st.m.memberNo}</span> · {planLabel(st, lang)}
+                </p>
+              </div>
+              <DaysRing left={st.daysLeft} total={st.totalDays} size={70} frozen={!!st.frozenNow} lang={lang} />
             </div>
-            <DaysRing left={st.daysLeft} total={st.totalDays} size={70} frozen={!!st.frozenNow} />
-          </div>
-          <p className="text-[18px] font-bold leading-snug" aria-live="polite">
-            {line}
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            {chipsFor(st).map((c) => (
-              <Chip key={c.text} {...c} />
-            ))}
-          </div>
-          {pendingAmt > 0 && (
-            <p className="rounded-xl border-2 border-dashed border-[var(--ink)] bg-[var(--marigold)] p-2 text-[14px] font-semibold">
-              {t.waitingGym(rupees(pendingAmt))}. {t.waitNote}
+            <p className="text-[18px] font-bold leading-snug" aria-live="polite">
+              {line}
             </p>
-          )}
-        </div>
-      </section>
-
-      <Pass st={st} snap={snap} token={token} embed={embed} />
+            <div className="flex flex-wrap gap-1.5">
+              {chipsFor(st, lang).map((c) => (
+                <Chip key={c.text} {...c} />
+              ))}
+            </div>
+            {pendingAmt > 0 && (
+              <p className="rounded-xl border-2 border-dashed border-[var(--ink)] bg-[var(--marigold)] p-2 text-[14px] font-semibold">
+                {t.waitingGym(rupees(pendingAmt))}. {t.waitNote}
+              </p>
+            )}
+          </div>
+          <div className="perf" aria-hidden />
+          <Pass st={st} snap={snap} token={token} embed={embed} />
+        </section>
+      </div>
 
       <div className="grid gap-2">
         {canPay && (
@@ -182,6 +183,31 @@ function CardBody({ st, snap, token, embed }: { st: MemberState; snap: Snapshot;
         </>
       )}
     </div>
+  );
+}
+
+/** The top of the card: the gym's own little shopfront, its signboard and a half-raised shutter. */
+function ShopStrip({ name, branch, color }: { name: string; branch: string; color: string }) {
+  const long = name.length > 18;
+  return (
+    <svg viewBox="0 0 400 92" className="block h-auto w-full" role="img" aria-label={`${name}, ${branch}`}>
+      <rect width="400" height="92" fill="#B5452E" />
+      <path d="M0 14h400M0 30h400M0 46h400M0 62h400M0 78h400M30 0v14M90 14v16M150 0v14M210 14v16M270 0v14M330 14v16M390 0v14M60 30v16M120 46v16M240 30v16M300 46v16M360 30v16M20 62v16M180 62v16M340 62v16" stroke="#8E3423" strokeWidth="2" />
+      <rect x="40" y="10" width="320" height="44" rx="7" fill="#FFC21A" stroke="#1B1A2E" strokeWidth="3" />
+      {[64, 104, 144, 184, 224, 264, 304, 336].map((x) => (
+        <circle key={x} cx={x} cy="10" r="3.5" fill="#FFF1C9" stroke="#1B1A2E" strokeWidth="1.5" />
+      ))}
+      <text x="200" y="40" textAnchor="middle" fontSize="22" fill="#1B1A2E" style={{ fontFamily: "var(--font-sign)" }} textLength={long ? 280 : undefined} lengthAdjust={long ? "spacingAndGlyphs" : undefined}>
+        {name.toUpperCase()}
+      </text>
+      <rect x="70" y="60" width="260" height="32" fill="#FFE7B8" stroke="#1B1A2E" strokeWidth="2.5" />
+      <rect x="70" y="60" width="260" height="16" fill="#13A89E" stroke="#1B1A2E" strokeWidth="2.5" />
+      <path d="M70 66h260M70 71h260" stroke="#0D7F77" strokeWidth="1.5" />
+      <rect x="60" y="54" width="280" height="8" rx="4" fill={color} stroke="#1B1A2E" strokeWidth="2" />
+      <text x="200" y="88" textAnchor="middle" fontSize="11" fill="#1B1A2E" style={{ fontFamily: "var(--font-sans)", fontWeight: 700 }}>
+        {branch.toUpperCase()}
+      </text>
+    </svg>
   );
 }
 
@@ -277,7 +303,7 @@ function Pass({ st, snap, token, embed }: { st: MemberState; snap: Snapshot; tok
           : t.newCode(left);
 
   return (
-    <section className="panel flex flex-col items-center gap-2 p-4" aria-label={t.qrLabel}>
+    <section className="flex flex-col items-center gap-2 p-4" aria-label={t.qrLabel}>
       <p className="text-center text-[15px] font-semibold">{t.qrLabel}</p>
       <button type="button" onClick={() => setBig(!big)} className="relative grid place-items-center rounded-xl bg-white p-2" style={{ width: size + 16, height: size + 16 }} aria-label={big ? t.smaller : t.bigger}>
         {code ? <Qr text={code} size={size} label="Your check-in code" light="#FFFFFF" dark="#1B1A2E" /> : <div className="skeleton h-full w-full" />}

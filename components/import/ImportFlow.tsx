@@ -2,7 +2,7 @@
 // Import members from Excel in three plain steps: choose the file, check what each column is, import.
 // The sheet is read in this browser; nothing leaves the device until Import is pressed, and an
 // import never sends a single message. Used by the app's Import screen and the home page's scene 7.
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useGym, useSnap } from "@/components/shell/Gym";
 import { Icon } from "@/components/ui/Icon";
 import { addDays, fmtDate, todayIST } from "@/lib/core/dates";
@@ -79,6 +79,16 @@ export function ImportFlow({ onImported, onUndone, compact }: { onImported?: (r:
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [undone, setUndone] = useState(false);
+  const okRef = useRef<HTMLParagraphElement>(null);
+  // the panel shrinks when the rows go in: bring the result into view and read it out
+  useEffect(() => {
+    if (step !== 3) return;
+    const el = okRef.current;
+    if (!el) return;
+    el.focus({ preventScroll: true });
+    const top = el.getBoundingClientRect().top;
+    if (top < 80 || top > window.innerHeight - 120) el.scrollIntoView({ block: "center" });
+  }, [step]);
 
   const headers = useMemo(() => (raw[headerRow] ?? []).map((x) => String(x ?? "").trim()), [raw, headerRow]);
   const rows = useMemo(() => raw.slice(headerRow + 1), [raw, headerRow]);
@@ -229,7 +239,7 @@ export function ImportFlow({ onImported, onUndone, compact }: { onImported?: (r:
           <div className="flex flex-col gap-2">
             <label>
               <span className="label">Or paste rows from Google Sheets</span>
-              <textarea value={paste} onChange={(e) => setPaste(e.target.value)} placeholder="Copy the rows with their heading row, then paste here" className="input t-mono mt-1 !min-h-[96px] text-[13px]" />
+              <textarea value={paste} onChange={(e) => setPaste(e.target.value)} placeholder="Paste rows here (with the heading row)" className="input t-mono mt-1 !min-h-[96px] text-[13px]" />
             </label>
             <div className="flex flex-wrap gap-2">
               <button type="button" className="btn" disabled={!paste.trim()} onClick={() => onPaste(paste)}>
@@ -266,7 +276,7 @@ export function ImportFlow({ onImported, onUndone, compact }: { onImported?: (r:
                     <td className="px-3 py-1.5">
                       <select
                         aria-label={`What is the column ${h || i + 1}?`}
-                        className="input !min-h-11 text-[15px]"
+                        className="input !min-h-11 min-w-[168px] !px-2 text-[14px]"
                         value={map[i] ?? ""}
                         onChange={(e) => {
                           const k = (e.target.value || null) as FieldKey | null;
@@ -359,7 +369,7 @@ export function ImportFlow({ onImported, onUndone, compact }: { onImported?: (r:
         <div className="flex flex-col gap-3" aria-live="polite">
           {!undone ? (
             <>
-              <p className="rounded-xl border-2 border-[var(--ink)] bg-[var(--paan)] p-3 text-[17px] font-bold text-white">
+              <p ref={okRef} tabIndex={-1} className="rounded-xl border-2 border-[var(--ink)] bg-[var(--paan)] p-3 text-[17px] font-bold text-white outline-none">
                 {result.n} {result.n === 1 ? "member" : "members"} added.
               </p>
               <div className="flex flex-wrap items-center gap-2">

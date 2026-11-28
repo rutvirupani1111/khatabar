@@ -1,4 +1,3 @@
-import { Suspense } from "react";
 import { AccountFrame } from "@/components/site/AccountFrame";
 import { SiteFrame } from "@/components/site/Frame";
 import { Login } from "@/components/shell/Account";
@@ -9,9 +8,7 @@ export default function LoginPage() {
   return (
     <SiteFrame>
       <AccountFrame>
-        <Suspense>
-          <Login />
-        </Suspense>
+        <Login />
       </AccountFrame>
     </SiteFrame>
   );

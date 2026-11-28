@@ -153,8 +153,8 @@ function FreezeBoard() {
         {!req && !decided && <p className="mt-1 text-[14px] text-[var(--muted-ink)]">No requests waiting. Members ask from their phone card.</p>}
       </section>
 
-      <section className="whiteboard p-3 pb-3" aria-label="Who ends in the next 2 weeks">
-        <h3 className="mb-2 text-[15px] font-bold">Who ends in the next 2 weeks</h3>
+      <section className="whiteboard p-3 pb-3" aria-label="Who is frozen or ending in the next 2 weeks">
+        <h3 className="mb-2 text-[15px] font-bold">Who is frozen or ending in the next 2 weeks</h3>
         <div className="grid grid-cols-7 gap-1" role="list">
           {days.map((day) => {
             const here = shown.filter((x) => x.endDate === day);
@@ -168,11 +168,11 @@ function FreezeBoard() {
                 {here.map((x) => {
                   const tone = magnetTone(x);
                   return (
-                    <button key={x.m.id} type="button" onClick={() => (setMenu(menu === x.m.id ? null : x.m.id), setForm(null), setErr(""))} aria-expanded={menu === x.m.id} aria-label={`${x.m.name}, ${tone.word}, ends ${fmtDay(x.endDate)}`} className="flex flex-col items-center">
+                    <button key={x.m.id} type="button" onClick={() => (setMenu(menu === x.m.id ? null : x.m.id), setForm(null), setErr(""))} aria-expanded={menu === x.m.id} aria-label={`${x.m.name}, ${tone.word}, ends ${fmtDay(x.endDate)}`} className="flex w-full min-w-0 flex-col items-center">
                       <span className="grid size-9 place-items-center rounded-full border-2 border-[var(--ink)] text-[12px] font-bold shadow-[0_2px_0_var(--ink)]" style={{ background: tone.bg, color: tone.fg }}>
                         {initials(x.m.name)}
                       </span>
-                      <span className="max-w-[52px] truncate text-[11px] font-semibold">{firstName(x.m.name)}</span>
+                      <span className="max-w-[52px] truncate text-[11px] font-semibold max-[379px]:sr-only">{firstName(x.m.name)}</span>
                     </button>
                   );
                 })}

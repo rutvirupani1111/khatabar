@@ -6,7 +6,6 @@ import { RATES, SCENES } from "@/lib/i18n/site";
 import { Moti } from "@/components/world/characters/Moti";
 import { Ravi } from "@/components/world/characters/Ravi";
 import { Dots, INK, Plane, Use } from "@/components/world/kit";
-import { Window } from "@/components/world/places";
 import { DemoIsland } from "../Islands";
 import { ext, Scene, T } from "../bits";
 
@@ -17,7 +16,8 @@ export function Scene7Import() {
   return (
     <Scene
       c={c}
-      crop={{ p: [380, 330, 540, 470], m: [120, 360, 1100, 450] }}
+      prop="ledger"
+      crop={{ p: [380, 370, 540, 470], m: [120, 390, 1100, 450] }}
       ext={ext([
         ["#FFE7B8", 628],
         ["#6A3820", 640],
@@ -30,17 +30,20 @@ export function Scene7Import() {
             <rect x="0" y="0" width="1440" height="640" fill="#FFE7B8" />
             <Dots x={0} y={0} w={1440} h={640} o={0.08} />
             <rect x="0" y="628" width="1440" height="12" fill="#6A3820" stroke={INK} strokeWidth="2.5" />
-            <Window
-              x={620}
-              y={60}
-              w={240}
-              h={200}
-              bands={[
-                [90, "#8ED6F5"],
-                [70, "#B8E6F7"],
-                [40, "#FFE3A3"],
-              ]}
-            />
+            {/* the gym's wall calendar, this month's renewals ringed in red */}
+            <g stroke={INK} strokeWidth="2.5">
+              <path d="M740 40 V62" strokeWidth="3" />
+              <rect x="630" y="62" width="220" height="200" rx="4" fill="#FFF4DE" />
+              <rect x="630" y="62" width="220" height="44" fill="#D11F5C" />
+              {Array.from({ length: 20 }, (_, i) => (
+                <rect key={i} x={644 + (i % 5) * 40} y={118 + Math.floor(i / 5) * 34} width="30" height="24" rx="2" fill={[3, 9, 14].includes(i) ? "#FFE7B8" : "#FFFBF2"} strokeWidth="1.5" />
+              ))}
+              <circle cx="699" cy="130" r="17" fill="none" stroke="#D11F5C" strokeWidth="3" />
+              <circle cx="819" cy="198" r="17" fill="none" stroke="#D11F5C" strokeWidth="3" />
+            </g>
+            <text x="740" y="92" textAnchor="middle" fontSize="22" fill="#FFF4DE">
+              MEMBERS
+            </text>
             <rect x="1000" y="80" width="160" height="10" rx="5" fill="#FFF4DE" stroke={INK} strokeWidth="2.5" />
             <rect x="0" y="760" width="1440" height="80" fill="#EED9B5" stroke={INK} strokeWidth="2.5" />
             <Dots x={0} y={760} w={1440} h={80} o={0.1} />
@@ -84,6 +87,13 @@ export function Scene7Import() {
               <path d="M792 614 V760 M872 614 V760" strokeWidth="6" />
             </g>
             <Use id="laptop" x={782} y={534} d={200} keep="laptop" />
+            {/* a desk lamp over the laptop */}
+            <g stroke={INK} strokeWidth="2.5">
+              <path d="M896 600 V520 L940 486" fill="none" strokeWidth="5" strokeLinejoin="round" />
+              <path d="M926 470 L962 470 L972 500 L916 500 Z" fill="#0B7D47" />
+              <rect x="880" y="594" width="34" height="8" rx="3" fill={INK} />
+              <polygon points="918,500 970,500 990,560 900,560" fill="#FFE3A3" opacity=".35" stroke="none" />
+            </g>
             <g className="cells">
               {[0, 1, 2, 3, 4, 5].map((i) => (
                 <rect key={i} className="cell" x={800 + (i % 3) * 18} y={548 + Math.floor(i / 3) * 14} width="14" height="10" fill="#FFF4DE" stroke={INK} strokeWidth="1.5" opacity="0" style={{ "--d": `${i * 60}ms` } as CSSProperties} />

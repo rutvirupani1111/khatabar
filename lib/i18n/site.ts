@@ -137,7 +137,10 @@ export const SCENES: SceneCopy[] = [
   },
 ];
 
-export const STOP_TIMES = ["5:58", "6:02", "6:15", "6:30", "6:45", "10:30", "7:30"];
+/** The clock at each stop. The street runs from dawn to night and on to the next morning, so
+ *  every time says am or pm, and the last stop says it is the next day. */
+export const STOP_TIMES = ["5:58 am", "6:02 am", "6:15 am", "6:30 am", "6:45 am", "10:30 pm", "7:30 am"];
+export const STOP_NOTE: (Bi | null)[] = [null, null, null, null, null, { en: "night", hi: "रात" }, { en: "next day", hi: "अगला दिन" }];
 
 export const RATES = {
   title: "RATES",

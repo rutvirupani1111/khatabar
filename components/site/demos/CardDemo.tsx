@@ -33,7 +33,7 @@ function Door() {
       <div className="card-reveal">
         <div className="phone-frame md-up">
           <span className="notch" aria-hidden />
-          <div className="screen max-h-[560px] overflow-y-auto pt-4">
+          <div className="screen">
             <MemberCard variant="embed" memberNo="LP-0042" />
           </div>
         </div>

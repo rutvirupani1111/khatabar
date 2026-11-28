@@ -25,7 +25,7 @@ export function Scene1Hero() {
       <div className="hero-grid">
         <div className="scene-art" aria-hidden>
           <div className="scene-crop">
-            <Plane>
+            <Plane anchor="xMidYMax">
               <Sky
                 bands={[
                   [0, 170, "#2A2A72"],
@@ -49,7 +49,7 @@ export function Scene1Hero() {
                 ))}
               </g>
             </Plane>
-            <Plane cls="cam-exit">
+            <Plane cls="cam-exit" anchor="xMidYMax">
               <g fill="#2A2A72" stroke={INK} strokeWidth="2.5">
                 <path d="M0 300 H180 V840 H0 Z" />
                 <path d="M170 340 H310 V840 H170 Z" />
@@ -89,6 +89,7 @@ export function Scene1Hero() {
               <Shopfront
                 idp="s1"
                 shutter="anim"
+                bulbs="seq"
                 inside={
                   <OpeningInside clock="5:58">
                     <Ravi x={920} y={858} actor="s1-ravi" />
@@ -98,7 +99,7 @@ export function Scene1Hero() {
               <Pavement />
               <polygon className="hero-spill" points="700,780 1180,780 1300,840 580,840" fill="#FFC21A" />
             </Plane>
-            <Plane>
+            <Plane anchor="xMidYMax">
               <ChaiStall />
               <rect x="1140" y="760" width="130" height="36" rx="14" fill="#C99A5B" stroke={INK} strokeWidth="2.5" />
               <path d="M1154 770 h10 M1176 770 h10 M1198 770 h10 M1220 770 h10 M1242 770 h10" stroke={INK} strokeWidth="1.5" />
@@ -120,7 +121,7 @@ export function Scene1Hero() {
             <p className="hero-sub mt-3 font-semibold">
               <T v={HERO.who} />
             </p>
-            <div className="mt-5 hidden md:block">
+            <div className="hero-ctas mt-5 hidden md:block">
               <TwoActions pulse />
             </div>
             <a href="#how" className="mt-3 hidden min-h-11 items-center gap-1 text-[15px] font-semibold underline underline-offset-4 md:inline-flex">

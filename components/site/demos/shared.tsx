@@ -46,11 +46,23 @@ export function DemoFooter({ href, onDark }: { href?: string; onDark?: boolean }
           setBusy(false);
         }}
       >
-        {busy ? "Resetting..." : "Reset demo"}
+        {busy ? (
+          "Resetting..."
+        ) : (
+          <>
+            <span className="l-en">Reset demo</span>
+            <span className="l-hi" lang="hi">
+              डेमो फिर से शुरू करें
+            </span>
+          </>
+        )}
       </button>
       {href && (
         <Link href={href} className="demo-reset">
-          Do this in the full demo desk
+          <span className="l-en">Do this in the full demo desk</span>
+          <span className="l-hi" lang="hi">
+            पूरे डेमो डेस्क में यही करें
+          </span>
         </Link>
       )}
     </div>

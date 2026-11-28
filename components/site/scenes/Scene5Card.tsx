@@ -13,7 +13,15 @@ export function Scene5Card() {
   return (
     <Scene
       c={c}
-      crop={{ p: [250, 330, 660, 480], m: [0, 240, 1440, 590] }}
+      prop="glass"
+      cls="dim-out"
+      over={
+        <div className="scene-doors" aria-hidden>
+          <i className="l" />
+          <i className="r" />
+        </div>
+      }
+      crop={{ p: [250, 360, 660, 480], m: [0, 250, 1440, 590] }}
       ext={ext([
         ["#8ED6F5", 200],
         ["#B8E6F7", 300],

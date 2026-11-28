@@ -2,7 +2,7 @@
 // Scene 3's demo: three chits on a string, picked from the demo gym (who owes the most, who ends in
 // a day or three, who ended last week). Send reminder shows the exact message; marking it sent is
 // the same honest "opened" line the app writes. WhatsApp never opens from here.
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useDerived, useGym, useSnap } from "@/components/shell/Gym";
 import { message } from "@/components/shell/links";
 import { Icon } from "@/components/ui/Icon";
@@ -53,6 +53,16 @@ function Fees() {
   const [open, setOpen] = useState<string | null>(null);
   const [lang, setLang] = useState<Lang>("en");
   const [walk, setWalk] = useState<number | null>(null);
+  // one column of chits (phones): the preview opens right under the chit that was tapped
+  const [oneCol, setOneCol] = useState(false);
+  useEffect(() => {
+    const m = window.matchMedia("(max-width: 639px)");
+    const on = () => setOneCol(m.matches);
+    on();
+    m.addEventListener("change", on);
+    return () => m.removeEventListener("change", on);
+  }, []);
+  const head = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
     const take = () => {
@@ -116,6 +126,57 @@ function Fees() {
   };
 
   const cur = open ? chits.find((c) => c.st.m.id === open) : walk != null ? chits[walk] : undefined;
+  // when a preview opens, bring it into view and read its heading out
+  useEffect(() => {
+    if (!cur) return;
+    const h = head.current;
+    if (!h) return;
+    h.focus({ preventScroll: true });
+    h.closest("[data-preview]")?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [cur?.st.m.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const preview = cur && (
+    <div className="demo-panel flex flex-col gap-3 p-4" data-preview>
+      <h4 ref={head} tabIndex={-1} className="text-[16px] font-bold outline-none">
+        {walk != null ? `${walk + 1} of ${chits.length}: ` : ""}Reminder for {cur.st.m.name}
+      </h4>
+      <div className="flex gap-1" role="radiogroup" aria-label="Message language">
+        {(["en", "hi"] as Lang[]).map((l) => (
+          <button key={l} type="button" role="radio" aria-checked={lang === l} className="btn btn-sm" aria-pressed={lang === l} onClick={() => setLang(l)}>
+            {l === "en" ? "English" : "Hinglish"}
+          </button>
+        ))}
+      </div>
+      <WaPreview to={cur.st.m.name} text={message(snap, "demo", cur.st, cur.stage, lang, "Ravi")} />
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          className="btn btn-success"
+          onClick={() => {
+            markSent(cur);
+            if (walk != null) setWalk(walk + 1 < chits.length ? walk + 1 : null);
+            else setOpen(null);
+          }}
+        >
+          <Icon name="tick" size={18} /> Mark as sent (demo)
+        </button>
+        {walk != null ? (
+          <>
+            <button type="button" className="btn" onClick={() => setWalk(walk + 1 < chits.length ? walk + 1 : null)}>
+              Skip
+            </button>
+            <button type="button" className="btn" onClick={() => setWalk(null)}>
+              Stop
+            </button>
+          </>
+        ) : (
+          <button type="button" className="btn" onClick={() => setOpen(null)}>
+            Close
+          </button>
+        )}
+      </div>
+    </div>
+  );
 
   return (
     <div className="flex flex-col gap-3">
@@ -124,65 +185,28 @@ function Fees() {
           <path d="M4 10 Q220 58 436 10" fill="none" stroke="#1B1A2E" strokeWidth="2" vectorEffect="non-scaling-stroke" />
         </svg>
         <ul className="grid grid-cols-1 gap-3 pt-0 sm:grid-cols-3 sm:gap-2.5 sm:pt-7" aria-label="Members to remind">
-          {chits.map((c, i) => (
-            <li key={c.st.m.id} className="relative flex" style={{ transform: `rotate(${[-1.5, 0, 1.5][i]}deg)` }}>
-              <span aria-hidden className="absolute -top-5 left-1/2 hidden h-8 w-2.5 -translate-x-1/2 rounded-sm border-2 border-[var(--ink)] bg-[var(--wood)] sm:block" />
-              <div className="flex w-full flex-col gap-2 rounded-lg border-2 border-[var(--ink)] bg-[var(--paper)] p-3 shadow-[0_3px_0_var(--ink)]">
-                <div className="min-h-[44px] text-[15px] font-bold leading-tight">{c.st.m.name}</div>
-                <Chip {...c.chip} className="self-start !text-[12px]" />
-                <div className="text-[12px] font-semibold text-[var(--muted-ink)]">Last reminder: {lastSent(c.st.m.id)}</div>
-                <button type="button" className="btn btn-sm mt-auto !min-h-11 !px-2 !text-[14px]" onClick={() => (setOpen(c.st.m.id), setWalk(null))} aria-expanded={open === c.st.m.id}>
-                  <Icon name="chat" size={16} /> Send reminder
-                </button>
-              </div>
-            </li>
-          ))}
+          {chits.map((c, i) => {
+            const on = cur?.st.m.id === c.st.m.id;
+            return (
+              <li key={c.st.m.id} className="flex flex-col gap-2">
+                <div className="relative flex flex-1" style={{ transform: `rotate(${[-1.5, 0, 1.5][i]}deg)` }}>
+                  <span aria-hidden className="absolute -top-5 left-1/2 hidden h-8 w-2.5 -translate-x-1/2 rounded-sm border-2 border-[var(--ink)] bg-[var(--wood)] sm:block" />
+                  <div className="flex w-full flex-col gap-2 rounded-lg border-2 border-[var(--ink)] bg-[var(--paper)] p-3 shadow-[0_3px_0_var(--ink)]" style={on ? { outline: "3px solid var(--saffron)", outlineOffset: 2 } : undefined}>
+                    <div className="text-[15px] font-bold leading-tight sm:min-h-[44px]">{c.st.m.name}</div>
+                    <Chip {...c.chip} className="self-start !text-[12px]" />
+                    <div className="text-[12px] font-semibold text-[var(--muted-ink)]">Last reminder: {lastSent(c.st.m.id)}</div>
+                    <button type="button" className="btn btn-sm mt-auto !min-h-11 !px-2 !text-[14px]" onClick={() => (setOpen(c.st.m.id), setWalk(null))} aria-expanded={on}>
+                      <Icon name="chat" size={16} /> {on ? (oneCol ? "Preview below" : "Preview open") : "Send reminder"}
+                    </button>
+                  </div>
+                </div>
+                {oneCol && on && preview}
+              </li>
+            );
+          })}
         </ul>
       </div>
-      {cur && (
-        <div className="demo-panel flex flex-col gap-3 p-4">
-          {walk != null && (
-            <p className="text-[14px] font-bold">
-              {walk + 1} of {chits.length}: {cur.st.m.name}
-            </p>
-          )}
-          <div className="flex gap-1" role="radiogroup" aria-label="Message language">
-            {(["en", "hi"] as Lang[]).map((l) => (
-              <button key={l} type="button" role="radio" aria-checked={lang === l} className="btn btn-sm" aria-pressed={lang === l} onClick={() => setLang(l)}>
-                {l === "en" ? "English" : "Hinglish"}
-              </button>
-            ))}
-          </div>
-          <WaPreview to={cur.st.m.name} text={message(snap, "demo", cur.st, cur.stage, lang, "Ravi")} />
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              className="btn btn-success"
-              onClick={() => {
-                markSent(cur);
-                if (walk != null) setWalk(walk + 1 < chits.length ? walk + 1 : null);
-                else setOpen(null);
-              }}
-            >
-              <Icon name="tick" size={18} /> Mark as sent (demo)
-            </button>
-            {walk != null ? (
-              <>
-                <button type="button" className="btn" onClick={() => setWalk(walk + 1 < chits.length ? walk + 1 : null)}>
-                  Skip
-                </button>
-                <button type="button" className="btn" onClick={() => setWalk(null)}>
-                  Stop
-                </button>
-              </>
-            ) : (
-              <button type="button" className="btn" onClick={() => setOpen(null)}>
-                Close
-              </button>
-            )}
-          </div>
-        </div>
-      )}
+      {!oneCol && preview}
       {!cur && (
         <button type="button" className="btn btn-primary self-start" onClick={() => (setOpen(null), setWalk(0))}>
           <Icon name="chat" size={18} /> Send all {chits.length}, one by one

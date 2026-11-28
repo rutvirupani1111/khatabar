@@ -55,7 +55,7 @@ export function Freeze() {
   if (!snap || !d)
     return (
       <AppScreen screen="freeze" title="Freeze" sentence="Pause a membership when a member travels or is sick. Their end date moves forward." vignette="freeze">
-        <div className="island-skel mx-auto w-full max-w-[1200px]" aria-hidden>
+        <div className="island-skel mx-auto w-full max-w-[1440px] !px-3 md:!px-6" aria-hidden>
           <i style={{ height: 120 }} />
           <i style={{ height: 300 }} />
         </div>
@@ -116,8 +116,8 @@ export function Freeze() {
             </ul>
           </section>
 
-          <section className="whiteboard p-3 pb-6" aria-label="Who ends in the next 2 weeks">
-            <h2 className="mb-2 text-[17px] font-bold">Who ends in the next 2 weeks</h2>
+          <section className="whiteboard p-3 pb-6" aria-label="Who is frozen or ending in the next 2 weeks">
+            <h2 className="mb-2 text-[17px] font-bold">Who is frozen or ending in the next 2 weeks</h2>
             <div className="grid grid-cols-7 gap-1.5">
               {days.map((day) => {
                 const here = onBoard.filter((x) => x.endDate === day);
@@ -127,11 +127,11 @@ export function Freeze() {
                       {day === today ? "Today" : WD[weekday(day)]} {Number(day.slice(8))}
                     </span>
                     {here.slice(0, 4).map((x) => (
-                      <button key={x.m.id} type="button" onClick={() => setMenu(menu === x.m.id ? null : x.m.id)} aria-expanded={menu === x.m.id} aria-label={`${x.m.name}, ${x.frozenNow ? "frozen" : "ends soon"}, ${fmtDay(x.endDate)}`} className="flex flex-col items-center">
+                      <button key={x.m.id} type="button" onClick={() => setMenu(menu === x.m.id ? null : x.m.id)} aria-expanded={menu === x.m.id} aria-label={`${x.m.name}, ${x.frozenNow ? "frozen" : "ends soon"}, ${fmtDay(x.endDate)}`} className="flex w-full min-w-0 flex-col items-center">
                         <span className="grid size-9 place-items-center rounded-full border-2 border-[var(--ink)] text-[12px] font-bold shadow-[0_2px_0_var(--ink)]" style={{ background: x.frozenNow ? "var(--kingfisher)" : "var(--marigold-pale)", color: x.frozenNow ? "#fff" : "var(--ink)" }}>
                           {initials(x.m.name)}
                         </span>
-                        <span className="max-w-[64px] truncate text-[11px] font-semibold">{firstName(x.m.name)}</span>
+                        <span className="max-w-[64px] truncate text-[11px] font-semibold max-[379px]:sr-only">{firstName(x.m.name)}</span>
                       </button>
                     ))}
                     {here.length > 4 && <span className="text-[11px] font-semibold">+{here.length - 4} more</span>}

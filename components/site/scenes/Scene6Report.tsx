@@ -6,21 +6,21 @@ import { Meena } from "@/components/world/characters/Meena";
 import { Moti } from "@/components/world/characters/Moti";
 import { Sunita } from "@/components/world/characters/Sunita";
 import { Dots, INK, Plane, Use } from "@/components/world/kit";
-import { Counter, Window } from "@/components/world/places";
+import { Counter } from "@/components/world/places";
 import { DemoIsland } from "../Islands";
 import { CaptionCard, cropVars, ext } from "../bits";
 
 export function Scene6Report() {
   const c = SCENES[5];
   const style = {
-    ...cropVars({ p: [110, 236, 790, 554], m: [0, 250, 1440, 590] }),
+    ...cropVars({ p: [110, 286, 790, 554], m: [0, 250, 1440, 590] }),
     "--ext": ext([
       ["#2E3A78", 640],
       ["#2B2A40", 840],
     ]),
   } as CSSProperties;
   return (
-    <section id={c.id} data-scene={c.n} aria-labelledby={`s${c.n}-title`} className="scene wide cv" data-beat="night" style={style}>
+    <section id={c.id} data-scene={c.n} aria-labelledby={`s${c.n}-title`} className="scene wide grow dim-in" data-beat="night" style={style}>
       <div className="scene-art" aria-hidden>
         <div className="scene-crop">
           <Plane>
@@ -37,18 +37,26 @@ export function Scene6Report() {
               <rect x="0" y="0" width="1440" height="640" fill="#2E3A78" />
               <Dots x={0} y={0} w={1440} h={640} o={0.12} />
               <rect x="0" y="628" width="1440" height="12" fill="#6A3820" stroke={INK} strokeWidth="2.5" />
-              <Window
-                x={600}
-                y={60}
-                w={260}
-                h={210}
-                moon
-                bands={[
-                  [70, "#0F1030"],
-                  [70, "#191A4A"],
-                  [70, "#24286A"],
-                ]}
-              />
+              {/* the counter clock says 10:30, and the shutter notice is up for the night */}
+              <g stroke={INK} strokeWidth="2.5">
+                <circle cx="720" cy="160" r="86" fill="#FFF4DE" strokeWidth="4" />
+                <circle cx="720" cy="160" r="74" fill="none" stroke="#D11F5C" strokeWidth="3" />
+                {Array.from({ length: 12 }, (_, i) => {
+                  const a = (i * Math.PI) / 6;
+                  return <path key={i} d={`M${720 + 62 * Math.sin(a)} ${160 - 62 * Math.cos(a)} L${720 + 70 * Math.sin(a)} ${160 - 70 * Math.cos(a)}`} strokeWidth={i % 3 === 0 ? 5 : 2.5} />;
+                })}
+                <path d={`M720 160 L${720 + 38 * Math.sin((315 * Math.PI) / 180)} ${160 - 38 * Math.cos((315 * Math.PI) / 180)}`} strokeWidth="7" strokeLinecap="round" />
+                <path d="M720 160 L720 216" strokeWidth="4" strokeLinecap="round" />
+                <circle cx="720" cy="160" r="7" fill={INK} />
+                <rect x="900" y="110" width="150" height="110" rx="4" fill="#FFF4DE" transform="rotate(3 975 165)" />
+              </g>
+              <text x="975" y="150" textAnchor="middle" fontSize="17" fill={INK} transform="rotate(3 975 165)">
+                SHUTTER
+              </text>
+              <text x="975" y="176" textAnchor="middle" fontSize="17" fill={INK} transform="rotate(3 975 165)">
+                10:45 PM
+              </text>
+              <path d="M920 196 h110" stroke={INK} strokeWidth="2" transform="rotate(3 975 165)" />
               <rect x="560" y="300" width="300" height="12" rx="6" fill="#FFF4DE" stroke={INK} strokeWidth="2.5" />
               <polygon className="tube-glow tube-flicker" points="560,312 860,312 1000,640 420,640" fill="#9BE7FF" opacity=".3" />
               <rect x="0" y="760" width="1440" height="80" fill="#2B2A40" stroke={INK} strokeWidth="2.5" />
@@ -118,6 +126,7 @@ export function Scene6Report() {
       <div className="scene-ui">
         <CaptionCard
           c={c}
+          prop="lamp"
           timeLabel={
             <>
               <span className="t-night">10:30 PM</span>

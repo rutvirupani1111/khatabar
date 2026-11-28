@@ -12,12 +12,16 @@ export default function Pricing() {
           <PricingWall />
         </div>
         <div className="relative mx-auto flex max-w-[1440px] flex-col gap-4 px-4 py-6 md:min-h-[calc(100svh-64px)] md:justify-center md:px-8 xl:px-[104px]">
-          <div className="w-full max-w-[560px] rounded-xl border-4 border-[var(--ink)] bg-[var(--marigold)] p-5 shadow-[0_6px_0_var(--ink)] md:p-7">
-            <h1 id="pricing-title" className="t-display text-[44px] leading-none">
+          {/* the gym's rate list: a chalk slate hung on the shop wall, the price written in chalk */}
+          <div className="rate-slate w-full max-w-[560px] p-5 md:p-7">
+            <span className="nail" aria-hidden />
+            <p className="t-sign text-[15px] tracking-[0.12em] opacity-80">RATE LIST</p>
+            <h1 id="pricing-title" className="t-display mt-1 text-[40px] leading-none md:text-[44px]">
               Pricing
             </h1>
-            <div className="mt-4 flex items-baseline gap-3">
-              <span className="t-sign text-[40px] leading-none md:text-[48px]">Free · ₹0</span>
+            <div className="mt-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <span className="t-sign price text-[40px] leading-none md:text-[48px]">₹0</span>
+              <span className="text-[18px] font-bold">a month, free for one branch</span>
             </div>
             <p className="mt-2 text-[17px] font-semibold leading-snug">1 branch, up to 75 active members. Every feature: front desk, fees due reminders, freeze, owner report, import from Excel, member cards, door check-in.</p>
             <hr className="my-4 border-t-2 border-dashed border-[var(--ink)]" />

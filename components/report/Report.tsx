@@ -26,7 +26,7 @@ export function Report() {
   if (!snap || !d || !slate)
     return (
       <AppScreen screen="report" title="Owner report" sentence={sentence} vignette="report">
-        <div className="island-skel mx-auto w-full max-w-[760px]" aria-hidden>
+        <div className="island-skel mx-auto w-full max-w-[820px] !px-3 md:!px-6" aria-hidden>
           <i style={{ height: 420 }} />
         </div>
       </AppScreen>
@@ -141,7 +141,7 @@ export function Report() {
             </p>
             <ul className="mt-1">
               {row("today", "Ending today", String(slate.endingToday.length), "")}
-              {row("week", "Ending this week", String(slate.endingWeek.length), slate.endingWeekByPlan.map((p) => `${p.plan} ${p.n}`).join(" · "))}
+              {row("week", "Ends within 7 days (incl. today)", String(slate.endingWeek.length), slate.endingWeekByPlan.map((p) => `${p.plan} ${p.n}`).join(" · "))}
               {row(
                 "dues",
                 "Owes money",

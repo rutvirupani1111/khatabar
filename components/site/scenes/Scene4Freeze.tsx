@@ -14,7 +14,8 @@ export function Scene4Freeze() {
   return (
     <Scene
       c={c}
-      crop={{ p: [104, 300, 796, 520], m: [0, 250, 1440, 590] }}
+      prop="mirror"
+      crop={{ p: [104, 320, 796, 520], m: [0, 250, 1440, 590] }}
       ext={ext([
         ["#B8E6F7", 520],
         ["#1565D8", 544],
