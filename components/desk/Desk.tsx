@@ -102,10 +102,14 @@ function DeskInner() {
     if (!tourDone()) setTour(1);
   }, [mode, params]);
 
-  // rush hour mode switches itself on in the owner's rush hours, unless turned off today
-  useEffect(() => {
-    if (snap && isRushHour(snap.branch.settings.rushHours) && lsGet(`kb_queue_off_${today}`) !== "1") setQueue(true);
-  }, [snap?.branch.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  // rush hour mode switches itself on in the owner's rush hours, unless turned off today. It is
+  // decided in the same render that first draws the branch (not in an effect after it), so its
+  // note never appears a beat later and pushes the search box and the list down.
+  const [queueFor, setQueueFor] = useState<string | null>(null);
+  if (snap && queueFor !== snap.branch.id) {
+    setQueueFor(snap.branch.id);
+    if (isRushHour(snap.branch.settings.rushHours) && lsGet(`kb_queue_off_${today}`) !== "1") setQueue(true);
+  }
   useEffect(() => {
     forceLite(queue);
     return () => forceLite(false);

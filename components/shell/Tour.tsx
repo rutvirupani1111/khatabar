@@ -215,11 +215,12 @@ export function Tour(p: Props) {
       let x: number;
       let y: number;
       if (!wide) {
-        // phones: under the target if it fits above the bottom tabs, else over it, else docked
+        // phones: just above the target (what is under it, like the filter chips, stays free),
+        // else just under it if that fits above the bottom tabs, else docked over the tabs
         const floor = vh - 76;
         x = 12;
-        if (seen && r && r.bottom + 12 + bh <= floor) y = r.bottom + 12;
-        else if (seen && r && r.top - 12 - bh >= top0) y = r.top - 12 - bh;
+        if (seen && r && r.top - 12 - bh >= top0) y = r.top - 12 - bh;
+        else if (seen && r && r.bottom + 12 + bh <= floor) y = r.bottom + 12;
         else y = floor - bh;
       } else if (!seen || !r) {
         x = vw - bw - 24;
