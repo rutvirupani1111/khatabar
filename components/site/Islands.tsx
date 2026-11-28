@@ -16,14 +16,14 @@ function Skel() {
   );
 }
 
-const opts = { ssr: false, loading: () => <Skel /> };
+// next/dynamic needs each options object written out in place
 const DEMOS: Record<string, ComponentType> = {
-  counter: dynamic(() => import("./demos/CounterDemo"), opts),
-  fees: dynamic(() => import("./demos/FeesDemo"), opts),
-  freeze: dynamic(() => import("./demos/FreezeDemo"), opts),
-  card: dynamic(() => import("./demos/CardDemo"), opts),
-  report: dynamic(() => import("./demos/CloseAndReportDemo"), opts),
-  import: dynamic(() => import("./demos/ImportDemo"), opts),
+  counter: dynamic(() => import("./demos/CounterDemo"), { ssr: false, loading: () => <Skel /> }),
+  fees: dynamic(() => import("./demos/FeesDemo"), { ssr: false, loading: () => <Skel /> }),
+  freeze: dynamic(() => import("./demos/FreezeDemo"), { ssr: false, loading: () => <Skel /> }),
+  card: dynamic(() => import("./demos/CardDemo"), { ssr: false, loading: () => <Skel /> }),
+  report: dynamic(() => import("./demos/CloseAndReportDemo"), { ssr: false, loading: () => <Skel /> }),
+  import: dynamic(() => import("./demos/ImportDemo"), { ssr: false, loading: () => <Skel /> }),
 };
 
 export function DemoIsland({ name, minH = 420, label }: { name: keyof typeof DEMOS | string; minH?: number; label: string }) {
